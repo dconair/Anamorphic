@@ -5,6 +5,9 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: write
+
 jobs:
   macos-dmg:
     runs-on: macos-15
@@ -17,6 +20,14 @@ jobs:
         with:
           name: Anamorphic-macOS-DMG
           path: Ergebnisse/Anamorphic.dmg
+      - name: DMG als Release zum direkten Download veröffentlichen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "build-${{ github.run_number }}" Ergebnisse/Anamorphic.dmg \
+            --title "Anamorphic macOS (Build ${{ github.run_number }})" \
+            --notes "Nicht notarisiert: beim ersten Start Rechtsklick auf die App und Öffnen." \
+            --prerelease
 
   ios-ipa:
     runs-on: macos-15
