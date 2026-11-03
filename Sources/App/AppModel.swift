@@ -52,6 +52,14 @@ final class AppModel {
     var customLUT: CubeLUT?
     var tab: InspectorTab = .look
 
+    // Bildanalyse + Vorschläge
+    var analysis: ImageAnalysis?
+    var suggestions: [PresetSuggestion] = []
+    var activePreset: StylePreset?
+    var isAnalyzing = false
+    /// Läuft hoch, wenn eine neue Analyse fertig ist (für die Animation der Anzeige).
+    var analysisPulse = 0
+
     // Anzeige
     var previewImage: CGImage?
     var originalImage: CGImage?
@@ -81,6 +89,7 @@ final class AppModel {
     @ObservationIgnored private var renderTask: Task<Void, Never>?
     @ObservationIgnored private var frameTask: Task<Void, Never>?
     @ObservationIgnored private var exportTask: Task<Void, Never>?
+    @ObservationIgnored private var presetTask: Task<Void, Never>?
 
     var hasMedia: Bool { media != .none }
 
@@ -168,6 +177,7 @@ final class AppModel {
         sourcePixelSize = size
         sourceName = name
         media = .photo
+        await analyzeCurrentFrame(autoApply: true)
         scheduleRender()
     }
 
@@ -193,6 +203,7 @@ final class AppModel {
             sourceName = name
             media = .video
             await refreshVideoFrame()
+            await analyzeCurrentFrame(autoApply: true)
             scheduleRender()
         } catch {
             errorMessage = "Das Video konnte nicht geladen werden."
@@ -255,10 +266,70 @@ final class AppModel {
         }
     }
 
-    func apply(preset: StylePreset) {
-        var s = preset.settings
-        s.lutSpace = settings.lutSpace
-        settings = s
+    // MARK: Analyse
+
+    /// Analysiert das aktuelle Bild und wählt – wenn gewünscht – das passendste Preset.
+    func analyzeCurrentFrame(autoApply: Bool) async {
+        guard let src = sourceCI else { return }
+        isAnalyzing = true
+        let renderer = self.renderer
+        let result = await Task.detached(priority: .userInitiated) {
+            ImageAnalyzer.analyze(src, context: renderer.context)
+        }.value
+        analysis = result
+        suggestions = ImageAnalyzer.suggestions(for: result)
+        isAnalyzing = false
+        analysisPulse += 1
+        if autoApply, let best = suggestions.first {
+            apply(preset: best.preset, animated: false)
+        }
+    }
+
+    func reanalyze() {
+        Task {
+            await analyzeCurrentFrame(autoApply: false)
+            scheduleRender()
+        }
+    }
+
+    // MARK: Presets
+
+    /// Wechselt das Preset. Zahlenwerte werden in ca. 0,45 s überblendet, sodass man die Regler
+    /// laufen sieht und die Vorschau weich in den neuen Look übergeht.
+    func apply(preset: StylePreset, animated: Bool = true) {
+        var target = preset.settings
+        target.lutSpace = settings.lutSpace
+        // Titel-Einstellungen gehören nicht zum Look
+        target.subtitleEnabled = settings.subtitleEnabled
+        target.subtitleText = settings.subtitleText
+        target.subtitleStyle = settings.subtitleStyle
+        target.subtitleFont = settings.subtitleFont
+        target.subtitleSize = settings.subtitleSize
+        target.subtitlePosition = settings.subtitlePosition
+        target.aspect = settings.aspect
+        if let a = analysis { target = ImageAnalyzer.tuned(target, for: a) }
+
+        activePreset = preset
+        presetTask?.cancel()
+        guard animated else {
+            settings = target
+            scheduleRender()
+            return
+        }
+        let start = settings
+        presetTask = Task {
+            let steps = 14
+            for i in 1...steps {
+                if Task.isCancelled { return }
+                let t = Double(i) / Double(steps)
+                let eased = t * t * (3 - 2 * t)
+                settings = AnamorphicSettings.blend(start, target, t: eased)
+                scheduleRender()
+                try? await Task.sleep(nanoseconds: 32_000_000)
+            }
+            settings = target
+            scheduleRender()
+        }
     }
 
     // MARK: Vorschau

@@ -92,13 +92,14 @@ struct AnamorphicSettings: Codable, Equatable, Sendable {
     // Bildformat
     var aspect: AspectTarget = .scope239
     var verticalOffset: Double = 0          // -1 ... 1  (positiv = Ausschnitt nach oben)
-    var desqueeze: Double = 1.0             // 1.0 ... 1.5, nur für echtes Anamorphot-Material
+    var desqueeze: Double = 1.2             // 1.0 ... 1.6  mittlere Breitenstreckung des fertigen Bildes
+    var edgeStretch = 0.35                  // 0 ... 1      wie viel stärker der Rand gestreckt wird als die Mitte
+    var squeeze = 1.5                       // 1.0 ... 2.0  Anamorphot-Faktor: Bokeh, Korn, Glimmer werden so oval
 
     // Bokeh
     var bokehEnabled = true
-    var bokehAmount = 0.35                  // 0 ... 1
-    var bokehOval = 1.6                     // 1 ... 2   (Verhältnis Breite:Höhe der Unschärfescheiben)
-    var highlightBoost = 0.5                // 0 ... 1   Lichter werden zu Scheiben
+    var bokehAmount = 0.25                  // 0 ... 1
+    var highlightBoost = 0.3                // 0 ... 1   Lichter werden zu Scheiben
     var focusMode: FocusMode = .subject
     var focusX = 0.5                        // 0 ... 1 (Ellipse)
     var focusY = 0.55
@@ -107,14 +108,15 @@ struct AnamorphicSettings: Codable, Equatable, Sendable {
 
     // Flares
     var flareEnabled = true
-    var flareThreshold = 0.96               // 0.7 ... 1  (Anzeige-Helligkeit ab der Lichter streuen)
-    var flareLength = 0.55                  // 0 ... 1
-    var flareIntensity = 0.45               // 0 ... 1
+    var flareThreshold = 0.97               // 0.8 ... 1  (Anzeige-Helligkeit ab der Lichter streuen)
+    var flareLength = 0.5                   // 0 ... 1
+    var flareIntensity = 0.3                // 0 ... 1
     var flareTint: FlareTint = .blue
-    var halation = 0.25                     // 0 ... 1  warmer Glimmer um Lichter
+    var halation = 0.15                     // 0 ... 1  warmer Glimmer um Lichter
 
     // Optik
-    var aberration = 0.2                    // 0 ... 1  laterale Farbsäume zum Rand
+    var aberration = 0.15                   // 0 ... 1  laterale Farbsäume zum Rand
+    var edgeSoftness = 0.2                  // 0 ... 1  Randunschärfe wie bei echten Anamorphoten
 
     // Look / Farbe
     var lookID = "cinema"
@@ -137,9 +139,9 @@ struct AnamorphicSettings: Codable, Equatable, Sendable {
     var subtitlePosition = 0.09             // Abstand der Unterkante, Anteil der Bildhöhe (0 ... 0.4)
 
     // Film
-    var grain = 0.3                         // 0 ... 1
+    var grain = 0.15                        // 0 ... 1
     var grainSize = 0.4                     // 0 ... 1
-    var vignette = 0.3                      // 0 ... 1
+    var vignette = 0.25                     // 0 ... 1
 }
 
 // MARK: - Geometrie
@@ -154,7 +156,7 @@ struct FrameGeometry: Equatable {
 
 extension AnamorphicSettings {
     func geometry(for input: CGSize) -> FrameGeometry {
-        let stretchedW = input.width * max(1.0, desqueeze)
+        let stretchedW = Double(Stretch.outputWidth(width: Int(input.width.rounded()), desqueeze: desqueeze, edge: edgeStretch))
         let stretchedH = input.height
         let stretched = CGSize(width: stretchedW, height: stretchedH)
 
@@ -187,7 +189,7 @@ extension Double {
 
 /// Bewusst zurückhaltende Ausgangspunkte. Alles bleibt danach frei einstellbar.
 enum StylePreset: String, CaseIterable, Identifiable {
-    case natural, nightCity, tungsten, goldenHour, clean
+    case natural, nightCity, tungsten, goldenHour, softFilm, clean
 
     var id: String { rawValue }
 
@@ -197,6 +199,7 @@ enum StylePreset: String, CaseIterable, Identifiable {
         case .nightCity: return "Nachtstadt"
         case .tungsten: return "Tungsten 500"
         case .goldenHour: return "Goldene Stunde"
+        case .softFilm: return "Soft Film"
         case .clean: return "Nur Format"
         }
     }
@@ -207,6 +210,7 @@ enum StylePreset: String, CaseIterable, Identifiable {
         case .nightCity: return "Kühle Schatten, blaue Streaks"
         case .tungsten: return "Warmes Kunstlicht-Negativ, Bernstein-Flares"
         case .goldenHour: return "Weiches Gegenlicht, warme Lichter"
+        case .softFilm: return "Flach und weich, entsättigt, ruhige Szenen"
         case .clean: return "2.39:1 Zuschnitt, sonst nichts"
         }
     }
@@ -219,35 +223,46 @@ enum StylePreset: String, CaseIterable, Identifiable {
         case .nightCity:
             s.lookID = "nightBlue"
             s.lookIntensity = 0.85
-            s.flareThreshold = 0.93
-            s.flareIntensity = 0.6
-            s.flareLength = 0.7
+            s.flareThreshold = 0.95
+            s.flareIntensity = 0.45
+            s.flareLength = 0.65
             s.flareTint = .blue
-            s.bokehAmount = 0.5
-            s.highlightBoost = 0.7
-            s.grain = 0.35
-            s.vignette = 0.4
+            s.bokehAmount = 0.35
+            s.highlightBoost = 0.5
+            s.grain = 0.2
+            s.vignette = 0.35
         case .tungsten:
             s.lookID = "tungsten"
             s.lookIntensity = 0.9
             s.flareTint = .amber
             s.flareIntensity = 0.4
-            s.halation = 0.4
-            s.grain = 0.4
+            s.halation = 0.3
+            s.grain = 0.25
             s.grainSize = 0.5
         case .goldenHour:
             s.lookID = "goldenHour"
             s.lookIntensity = 0.85
             s.flareThreshold = 0.94
             s.flareTint = .amber
-            s.flareIntensity = 0.35
-            s.halation = 0.35
+            s.flareIntensity = 0.3
+            s.halation = 0.3
             s.warmth = 0.1
-            s.grain = 0.25
+            s.grain = 0.15
+        case .softFilm:
+            s.lookID = "softFilm"
+            s.lookIntensity = 0.9
+            s.flareEnabled = false
+            s.halation = 0.2
+            s.edgeSoftness = 0.3
+            s.grain = 0.2
+            s.contrast = -0.05
         case .clean:
             s.lookID = "none"
             s.bokehEnabled = false
             s.flareEnabled = false
+            s.edgeStretch = 0
+            s.desqueeze = 1.0
+            s.edgeSoftness = 0
             s.halation = 0
             s.aberration = 0
             s.grain = 0

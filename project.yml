@@ -12,7 +12,7 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "0.1.0"
+    MARKETING_VERSION: "0.3.0"
     CURRENT_PROJECT_VERSION: "1"
     CODE_SIGN_STYLE: Automatic
     DEVELOPMENT_TEAM: ""           # <- deine Team-ID (oder in Xcode unter Signing wählen)
@@ -24,10 +24,12 @@ targets:
     sources:
       - path: Sources/Core
       - path: Sources/App
+      - path: Sources/Icons/iOS
     settings:
       base:
         PRODUCT_NAME: Anamorphic
         PRODUCT_BUNDLE_IDENTIFIER: com.example.anamorphic
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         TARGETED_DEVICE_FAMILY: "1,2"
         GENERATE_INFOPLIST_FILE: NO
     info:
@@ -49,10 +51,12 @@ targets:
     sources:
       - path: Sources/Core
       - path: Sources/App
+      - path: Sources/Icons/macOS
     settings:
       base:
         PRODUCT_NAME: Anamorphic
         PRODUCT_BUNDLE_IDENTIFIER: com.example.anamorphic
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ENABLE_HARDENED_RUNTIME: YES
         GENERATE_INFOPLIST_FILE: NO
     info:

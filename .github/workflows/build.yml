@@ -8,6 +8,11 @@ on:
 permissions:
   contents: write
 
+# Neuer Push bricht veraltete Läufe ab (sonst gibt es Fehler-Mails zu überholten Ständen)
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   macos-dmg:
     runs-on: macos-15
@@ -52,3 +57,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: swift test
+        env:
+          SAMPLE_DIR: ${{ github.workspace }}/samples
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Beispielbilder
+          path: samples
+          if-no-files-found: ignore

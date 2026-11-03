@@ -28,9 +28,12 @@ struct InspectorView: View {
                     case .export: ExportPanel(model: model)
                     }
                 }
+                .id(model.tab)
+                .transition(.opacity.combined(with: .offset(y: 6)))
                 .padding(16)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .animation(.easeOut(duration: 0.22), value: model.tab)
         }
         .background(Theme.panel)
     }
@@ -90,23 +93,27 @@ private struct LookPanel: View {
     let importLUT: () -> Void
 
     var body: some View {
-        Group_(title: "Voreinstellung") {
+        if let analysis = model.analysis {
+            Group_(title: "Bildanalyse", trailing: model.isAnalyzing ? "…" : nil) {
+                AnalysisCard(analysis: analysis, pulse: model.analysisPulse)
+                Button("Neu analysieren") { model.reanalyze() }
+                    .buttonStyle(GateButtonStyle(kind: .secondary))
+            }
+        }
+
+        Group_(title: "Voreinstellung", trailing: model.suggestions.isEmpty ? nil : "nach Eignung") {
             VStack(spacing: 0) {
-                ForEach(StylePreset.allCases) { preset in
-                    Button { model.apply(preset: preset) } label: {
-                        HStack(alignment: .firstTextBaseline) {
-                            Text(preset.title).font(Theme.serif(15)).foregroundStyle(Theme.text)
-                            Spacer()
-                            Text(preset.summary).font(.system(size: 11)).foregroundStyle(Theme.dim)
-                                .multilineTextAlignment(.trailing)
-                        }
-                        .padding(.vertical, 9)
-                        .contentShape(Rectangle())
+                ForEach(orderedPresets) { item in
+                    PresetRow(preset: item.preset,
+                              score: item.score,
+                              reason: item.reason,
+                              selected: model.activePreset == item.preset) {
+                        model.apply(preset: item.preset)
                     }
-                    .buttonStyle(.plain)
-                    Rectangle().fill(Theme.hairline.opacity(0.6)).frame(height: 1)
                 }
             }
+            .animation(.snappy(duration: 0.35), value: model.suggestions.map(\.id))
+            Hint("Die Reihenfolge richtet sich nach dem Bild: Helligkeit, Farbtemperatur, Lichtquellen und Gesichter. Ein Preset ist nur ein Startpunkt, alles bleibt einstellbar.")
         }
 
         Group_(title: "Look / LUT") {
@@ -137,6 +144,16 @@ private struct LookPanel: View {
                 Hint("Die meisten Film-LUTs sind für Rec.709 gebaut. Bei LUTs für Display P3 oder sRGB hier umstellen, sonst wirken Farben leicht verschoben.")
             }
         }
+    }
+
+    private struct Ranked: Identifiable { let preset: StylePreset; let score: Double; let reason: String; var id: String { preset.id } }
+
+    private var orderedPresets: [Ranked] {
+        var list = model.suggestions.map { Ranked(preset: $0.preset, score: $0.score, reason: $0.reason) }
+        for p in StylePreset.allCases where !list.contains(where: { $0.preset == p }) {
+            list.append(Ranked(preset: p, score: model.suggestions.isEmpty ? 0 : -1, reason: p.summary))
+        }
+        return list
     }
 
     private func swatches(for recipe: LookRecipe) -> [Color] {
@@ -189,6 +206,123 @@ private struct LookRow: View {
     }
 }
 
+// MARK: - Analyse-Karte und Preset-Zeile
+
+private struct PresetRow: View {
+    let preset: StylePreset
+    let score: Double          // < 0 = nicht bewertet
+    let reason: String
+    let selected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Button(action: action) {
+                HStack(spacing: 12) {
+                    Rectangle().fill(selected ? Theme.accent : Color.clear).frame(width: 2)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(preset.title).font(Theme.serif(15))
+                            .foregroundStyle(selected ? Theme.text : Theme.text.opacity(0.85))
+                        Text(score >= 0.5 ? reason : preset.summary)
+                            .font(.system(size: 11)).foregroundStyle(Theme.dim)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer(minLength: 8)
+                    if score >= 0 {
+                        MatchBar(value: score, highlighted: score >= 0.5)
+                    }
+                }
+                .padding(.vertical, 9)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityAddTraits(selected ? .isSelected : [])
+            Rectangle().fill(Theme.hairline.opacity(0.6)).frame(height: 1)
+        }
+    }
+}
+
+/// Fünf Striche wie eine Pegelanzeige – so viele leuchten, wie das Preset zum Bild passt.
+private struct MatchBar: View {
+    let value: Double
+    let highlighted: Bool
+    var body: some View {
+        HStack(spacing: 2) {
+            ForEach(0..<5, id: \.self) { i in
+                Rectangle()
+                    .fill(Double(i) < value * 5 - 0.2
+                          ? (highlighted ? Theme.accent : Theme.dim)
+                          : Theme.hairline)
+                    .frame(width: 3, height: 11)
+            }
+        }
+        .animation(.easeOut(duration: 0.5), value: value)
+        .accessibilityLabel("Eignung \(Int(value * 100)) Prozent")
+    }
+}
+
+private struct AnalysisCard: View {
+    let analysis: ImageAnalysis
+    let pulse: Int
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            Meter(title: "Helligkeit", value: analysis.meanLuma)
+            Meter(title: "Kontrast", value: analysis.contrast)
+            Meter(title: "Wärme", value: 0.5 + analysis.warmth * 2.5, centered: true)
+            Meter(title: "Farbsättigung", value: analysis.saturation)
+            HStack {
+                Text("Lichtquellen").gateCaption()
+                Spacer()
+                Text(analysis.hasLightSources ? "\(analysis.lightSourceCount)" : "keine")
+                    .font(Theme.mono(11)).foregroundStyle(Theme.text)
+            }
+            HStack {
+                Text("Gesichter").gateCaption()
+                Spacer()
+                Text(analysis.faceCount == 0 ? "keine" : "\(analysis.faceCount)")
+                    .font(Theme.mono(11)).foregroundStyle(Theme.text)
+            }
+        }
+        .padding(12)
+        .background(Theme.bg)
+        .overlay(Rectangle().stroke(Theme.hairline, lineWidth: 1))
+        .id(pulse)
+        .transition(.opacity)
+    }
+}
+
+private struct Meter: View {
+    let title: String
+    let value: Double
+    var centered = false
+    @State private var shown = 0.0
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Text(title).gateCaption().frame(width: 96, alignment: .leading)
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Rectangle().fill(Theme.hairline).frame(height: 2)
+                    if centered {
+                        let c = geo.size.width / 2
+                        let x = geo.size.width * shown
+                        Rectangle().fill(Theme.accent)
+                            .frame(width: abs(x - c), height: 2)
+                            .offset(x: min(x, c))
+                    } else {
+                        Rectangle().fill(Theme.accent).frame(width: geo.size.width * shown, height: 2)
+                    }
+                }
+                .frame(maxHeight: .infinity)
+            }
+            .frame(height: 12)
+        }
+        .onAppear { withAnimation(.easeOut(duration: 0.7)) { shown = value.clamped(0, 1) } }
+        .onChange(of: value) { _, v in withAnimation(.easeOut(duration: 0.7)) { shown = v.clamped(0, 1) } }
+    }
+}
+
 // MARK: - Linse
 
 private struct LensPanel: View {
@@ -199,15 +333,20 @@ private struct LensPanel: View {
             OptionStrip(items: AspectTarget.allCases, selection: $model.settings.aspect) { $0.title }
             Param(model: model, title: "Ausschnitt vertikal", keyPath: \.verticalOffset, range: -1...1,
                   neutral: 0, format: Fmt.signedPercent)
-            Param(model: model, title: "Desqueeze", keyPath: \.desqueeze, range: 1...1.5, format: Fmt.factor)
-            Hint("Desqueeze streckt das Bild in die Breite – nur sinnvoll für Material, das wirklich mit einem Anamorphot (z. B. 1.33× Vorsatz) gedreht wurde. Normale Aufnahmen bleiben bei 1.00×; sie werden dann nur sauber auf das Format zugeschnitten, nichts wird verzerrt.")
+        }
+
+        Group_(title: "Anamorphot") {
+            Param(model: model, title: "Linsen-Squeeze", keyPath: \.squeeze, range: 1...2, format: Fmt.factor)
+            Param(model: model, title: "Breitenstreckung", keyPath: \.desqueeze, range: 1...1.6, format: Fmt.factor)
+            Param(model: model, title: "Randdehnung", keyPath: \.edgeStretch, range: 0...1)
+            Param(model: model, title: "Randunschärfe", keyPath: \.edgeSoftness, range: 0...1)
+            Hint("Wie bei einer echten Anamorphot-Aufnahme: Unschärfe, Flares und Korn entstehen im gequetschten Bild und werden danach mit dem Faktor der Breitenstreckung wieder auseinandergezogen. Daher sind Bokeh-Scheiben oval. Der Linsen-Squeeze bestimmt die Ovalität (1.5× ≈ 1.5:1). Randdehnung streckt die Bildränder stärker als die Mitte (leichter Weitwinkel-„Mumps“-Effekt), Randunschärfe macht die Ränder weicher. Für Material, das schon anamorph gefilmt wurde, Streckung auf den Adapter-Faktor stellen (z. B. 1.33×).")
         }
 
         Group_(title: "Bokeh") {
             LampToggle(title: "Anamorphes Bokeh", isOn: $model.settings.bokehEnabled)
             if model.settings.bokehEnabled {
                 Param(model: model, title: "Unschärfe", keyPath: \.bokehAmount, range: 0...1)
-                Param(model: model, title: "Ovalität", keyPath: \.bokehOval, range: 1...2, format: Fmt.ratio)
                 Param(model: model, title: "Lichter-Scheiben", keyPath: \.highlightBoost, range: 0...1)
 
                 VStack(alignment: .leading, spacing: 6) {

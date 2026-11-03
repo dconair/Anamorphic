@@ -53,7 +53,9 @@ final class CubeLUTTests: XCTestCase {
 
 final class GeometryTests: XCTestCase {
     func testScopeCropFrom16x9() {
-        let s = AnamorphicSettings()   // 2.39, kein Desqueeze
+        var s = AnamorphicSettings()   // 2.39
+        s.desqueeze = 1.0
+        s.edgeStretch = 0
         let g = s.geometry(for: CGSize(width: 3840, height: 2160))
         XCTAssertEqual(g.crop.width, 3840)
         XCTAssertEqual(g.crop.height, 1606)
@@ -63,7 +65,10 @@ final class GeometryTests: XCTestCase {
     }
 
     func testPortraitSourceIsCroppedNotStretched() {
-        let g = AnamorphicSettings().geometry(for: CGSize(width: 1080, height: 1920))
+        var s = AnamorphicSettings()
+        s.desqueeze = 1.0
+        s.edgeStretch = 0
+        let g = s.geometry(for: CGSize(width: 1080, height: 1920))
         XCTAssertEqual(g.crop.width, 1080)
         XCTAssertLessThan(g.crop.height, 1920)
     }
@@ -78,9 +83,35 @@ final class GeometryTests: XCTestCase {
     func testDesqueezeWidensBefore() {
         var s = AnamorphicSettings()
         s.desqueeze = 1.33
+        s.edgeStretch = 0
         s.aspect = .original
         let g = s.geometry(for: CGSize(width: 3000, height: 2250))   // 4:3 → ~16:9
         XCTAssertEqual(g.crop.width / g.crop.height, 16.0 / 9.0, accuracy: 0.01)
+    }
+
+    func testDefaultStretchWidensImageAndKeepsHeight() {
+        let s = AnamorphicSettings()
+        let g = s.geometry(for: CGSize(width: 4000, height: 3000))
+        XCTAssertGreaterThan(g.stretchedSize.width, 4000 * 1.15)
+        XCTAssertEqual(g.stretchedSize.height, 3000)
+        XCTAssertEqual(g.crop.width / g.crop.height, 2.39, accuracy: 0.02)
+    }
+
+    func testStretchAverageEqualsDesqueeze() {
+        for (d, e) in [(1.2, 0.35), (1.33, 0.0), (1.5, 1.0)] {
+            let w = 4000
+            let out = Stretch.outputWidth(width: w, desqueeze: d, edge: e)
+            XCTAssertEqual(Double(out) / Double(w), d, accuracy: 0.01, "d=\(d) e=\(e)")
+        }
+    }
+
+    func testStretchEdgesStretchMoreThanCenter() {
+        let b = Stretch.boundaries(width: 4000, desqueeze: 1.3, edge: 0.8)
+        let n = Stretch.strips
+        let first = Double(b.dst[1] - b.dst[0]) / Double(b.src[1] - b.src[0])
+        let mid = Double(b.dst[n / 2 + 1] - b.dst[n / 2]) / Double(b.src[n / 2 + 1] - b.src[n / 2])
+        XCTAssertGreaterThan(first, mid)
+        XCTAssertEqual(b.dst.sorted(), b.dst)
     }
 
     func testVerticalOffsetStaysInsideImage() {
@@ -144,6 +175,25 @@ final class RendererSmokeTests: XCTestCase {
         }
     }
 
+    /// Schreibt Beispielbilder (nur wenn SAMPLE_DIR gesetzt ist; in CI als Artefakt zur Sichtprüfung).
+    func testWriteSamples() throws {
+        guard let dir = ProcessInfo.processInfo.environment["SAMPLE_DIR"] else { return }
+        try FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+        let renderer = AnamorphicRenderer()
+        let src = testImage(width: 1920, height: 1080)
+        func write(_ name: String, _ s: AnamorphicSettings) throws {
+            let out = renderer.process(src, settings: s, lut: LookLibrary.lut(for: s.lookID), subjectMask: nil, frameSeed: 1)
+            let data = try renderer.encode(out, format: .png)
+            try data.write(to: URL(fileURLWithPath: dir).appendingPathComponent("\(name).png"))
+        }
+        var flat = AnamorphicSettings(); flat.aspect = .original
+        flat.lookID = "none"; flat.desqueeze = 1; flat.edgeStretch = 0
+        flat.bokehEnabled = false; flat.flareEnabled = false; flat.halation = 0
+        flat.aberration = 0; flat.edgeSoftness = 0; flat.grain = 0; flat.vignette = 0
+        try write("00-original", flat)
+        for preset in StylePreset.allCases { try write("preset-\(preset.rawValue)", preset.settings) }
+    }
+
     func testFlareBrightensAroundLights() {
         let renderer = AnamorphicRenderer()
         var off = StylePreset.clean.settings
@@ -164,5 +214,51 @@ final class RendererSmokeTests: XCTestCase {
         }
         // 80 px neben der Lichtquelle, auf gleicher Höhe: Streak muss heller sein als ohne Flare.
         XCTAssertGreaterThan(pixel(b, x: 380, y: 300), pixel(a, x: 380, y: 300))
+    }
+}
+
+
+final class AnalysisTests: XCTestCase {
+    func testNightSceneSuggestsNightPreset() {
+        var a = ImageAnalysis()
+        a.meanLuma = 0.12
+        a.darkFraction = 0.7
+        a.lightSourceCount = 5
+        let best = ImageAnalyzer.suggestions(for: a).first
+        XCTAssertEqual(best?.preset, .nightCity)
+    }
+
+    func testWarmBrightSceneSuggestsGoldenHour() {
+        var a = ImageAnalysis()
+        a.meanLuma = 0.62
+        a.warmth = 0.2
+        a.saturation = 0.5
+        a.contrast = 0.7
+        let best = ImageAnalyzer.suggestions(for: a).first
+        XCTAssertEqual(best?.preset, .goldenHour)
+    }
+
+    func testTuningDisablesFlaresWithoutLightSources() {
+        var a = ImageAnalysis()
+        a.lightSourceCount = 0
+        let s = ImageAnalyzer.tuned(StylePreset.nightCity.settings, for: a)
+        XCTAssertFalse(s.flareEnabled)
+    }
+
+    func testTuningProtectsFaces() {
+        var a = ImageAnalysis()
+        a.faceCount = 1
+        var base = AnamorphicSettings()
+        base.desqueeze = 1.5
+        base.edgeStretch = 0
+        let s = ImageAnalyzer.tuned(base, for: a)
+        XCTAssertLessThanOrEqual(s.desqueeze, 1.15)
+        XCTAssertGreaterThanOrEqual(s.edgeStretch, 0.4)
+    }
+
+    func testBlendInterpolatesNumbers() {
+        var a = AnamorphicSettings(); a.grain = 0
+        var b = AnamorphicSettings(); b.grain = 1
+        XCTAssertEqual(AnamorphicSettings.blend(a, b, t: 0.25).grain, 0.25, accuracy: 1e-9)
     }
 }

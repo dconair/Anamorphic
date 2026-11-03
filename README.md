@@ -51,24 +51,27 @@ sobald das Projekt in einem GitHub-Repo liegt – dann kommen DMG und IPA als Do
   **Flare** · **Farbe** · **Film** (Korn, Vignette) · **Titel** (Untertitel) · **Export**.
 - Video: Der Schieberegler unter dem Bild wählt das Vorschau-Bild. Der Export rendert das ganze Video auf der GPU, Ton bleibt erhalten.
 
-## Wie der Look entsteht (und warum er nicht "gezerrt" aussieht)
+## Wie der Look entsteht
 
-Die Pipeline (`Sources/Core/Renderer.swift`) folgt dem Weg des Lichts:
+Kurzfassung: Die App spielt den Weg einer anamorphen Aufnahme rückwärts nach – *Squeeze → Optik → Desqueeze*.
+Die ausführliche Erklärung mit Optik-Hintergrund steht in [`docs/ANAMORPHIC-PHYSIK.md`](docs/ANAMORPHIC-PHYSIK.md).
 
-1. **Bokeh** – Unschärfe wird im horizontal gestauchten Raum gerechnet und danach wieder gestreckt. So
-   werden Unschärfescheiben oval wie bei einer echten Anamorphot-Linse, ohne dass das Bild selbst verzerrt wird.
-   Motive werden per Vision erkannt und bleiben scharf (Foto); im Video wirkt eine einstellbare Ellipse.
-2. **Laterale Farbsäume** – R/B-Kanäle leicht gegeneinander skaliert, null in der Mitte, stärker zum Rand.
-3. **Streak-Flares + Halation** – nur kleine, sehr helle Lichtquellen streuen (Top-Hat-Filter schließt weiße
-   Wände aus). Horizontale Streaks in wählbarer Farbe (Blau, Bernstein, Neutral, Magenta), dazu ein warmer Hof.
-4. **Zuschnitt** auf 2.39 / 2.35 / 2.00 / 1.85 – immer ein **Ausschnitt, keine Streckung**. Maße sind gerade
-   Pixelzahlen (Video-Encoder). *Desqueeze* ist standardmäßig 1.00× und nur für Material gedacht, das wirklich
-   mit einem Anamorphot-Vorsatz gedreht wurde.
-5. **Farbe** – Belichtung → Weißabgleich → Lichter/Tiefen → **LUT** (Stärke regelbar) → Kontrast/Sättigung.
-6. **Vignette, Korn** (Korngröße relativ zur Bildbreite, pro Videoframe neu gewürfelt).
-7. **Untertitel** – CoreText-Ebene über dem fertigen Bild: *Kino* (weiß, weicher Schatten), *Klassisch*
-   (gelb mit Kontur) oder *Brat* (kleingeschrieben, schwarz auf #8ACE00, leicht verwaschen); sechs Schriften.
-   Im Video steht der Untertitel über die gesamte Länge (keine Zeitsteuerung in v0.1).
+Die Pipeline (`Sources/Core/Renderer.swift`):
+
+1. **Bildanalyse** (`ImageAnalysis.swift`) – Helligkeit, Kontrast, Farbtemperatur, Lichtquellen, Kantendichte und Gesichter
+   werden gemessen. Daraus werden Presets nach Eignung sortiert; das beste wird automatisch gesetzt und an das Bild
+   angepasst (keine Flares ohne echte Lichtquelle, Gesichter werden kaum gedehnt, ohnehin weiche Bilder bekommen weniger Bokeh).
+2. **Im Sensorraum** (horizontal um den Linsen-Squeeze gestaucht): Bokeh-Unschärfe, Randunschärfe. Danach wird wieder
+   gestreckt, so werden die Scheiben oval.
+3. **Laterale Farbsäume** – R/B-Kanäle leicht gegeneinander skaliert, null in der Mitte, stärker zum Rand.
+4. **Streak-Flares + Halation** – nur kleine, sehr helle Lichtquellen des *Originalbildes* streuen (Top-Hat-Filter schließt
+   weiße Wände aus). Horizontale Streaks in wählbarer Farbe, dazu ein warmer ovaler Hof.
+5. **Streifenweise Streckung** (`Stretch.swift`) – die Breite wird um die „Breitenstreckung“ gedehnt, der Rand stärker als
+   die Mitte (Randdehnung, wie beim echten Anamorphoten). Die mittlere Streckung bleibt exakt der eingestellte Wert.
+6. **Zuschnitt** auf 2.39 / 2.35 / 2.00 / 1.85, gerade Pixelmaße (Video-Encoder).
+7. **Farbe** – Belichtung → Weißabgleich → Lichter/Tiefen → **LUT** (Stärke regelbar) → Kontrast/Sättigung.
+8. **Ovale Vignette, Korn** (Korn horizontal gestreckt wie das Bild, relativ zur Bildbreite, pro Videoframe neu).
+9. **Untertitel** – CoreText-Ebene: *Kino*, *Klassisch*, *Brat*; sechs Schriften.
 
 Alle Pixelgrößen sind relativ zur Bildbreite, Vorschau und Export sehen deshalb gleich aus.
 
@@ -85,14 +88,15 @@ Alle Pixelgrößen sind relativ zur Bildbreite, Vorschau und Export sehen deshal
 
 - Ein **1.33×-Vorsatz** auf dem iPhone liefert in der Realität breiteres Bild, Verzerrung und horizontale
   Flares, aber **kein** ovales Bokeh. Ovales Bokeh gehört zu echten Cinema-Anamorphoten (1.6×–2×). Die App
-  simuliert beides getrennt, damit du entscheiden kannst, welchen Look du willst (*Ovalität* 1.0 = rund).
-- Aus einem normalen 16:9-Clip lässt sich kein breiteres Sichtfeld herstellen – der 2.39-Look ist ein Zuschnitt.
+  simuliert beides getrennt: *Linsen-Squeeze* 1.0 = rundes Bokeh.
+- Aus einem normalen 16:9-Clip lässt sich kein echtes zusätzliches Sichtfeld herstellen. Die App dehnt das Bild
+  deshalb nur mäßig (Standard 1.2×, Rand stärker) und schneidet auf 2.39 zu; ein Rest ist immer Zuschnitt.
 
 ## Feintuning
 
 Alle Konstanten, die den Charakter bestimmen, stehen in `Renderer.Tuning` (Bokeh-Radius, Streak-Länge/-Helligkeit,
-Aberration). Wenn Flares auf dem Gerät zu schwach oder zu hell wirken, ist `streakClamp` bzw. der Faktor `0.45`
-in `streakLayer` die erste Stellschraube. Eigene Looks: Rezepte in `Looks.swift` ergänzen.
+Aberration, Korn). Wenn Flares oder Korn zu schwach oder zu stark wirken, sind `streakGain`, `streakClamp` und
+`grainAmplitude` die ersten Stellschrauben. Eigene Looks: Rezepte in `Looks.swift` ergänzen.
 
 ## Bekannte Grenzen von v0.1
 
@@ -100,7 +104,6 @@ in `streakLayer` die erste Stellschraube. Eigene Looks: Rezepte in `Looks.swift`
 - Videovorschau zeigt Einzelbilder (Scrubbing), kein Live-Abspielen mit Effekten.
 - Motiv-Maske nur für Fotos (im Video Ellipse).
 - Apple-Log-Video wird nicht gesondert behandelt; dafür Apples Log→Rec.709-LUT importieren und Look auf „Kein Look“ stellen.
-- Kein App-Icon.
 
 ## Struktur
 
