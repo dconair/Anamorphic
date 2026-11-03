@@ -1,0 +1,38 @@
+name: Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  macos-dmg:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - run: xcodebuild -version
+      - name: macOS-App und DMG bauen
+        run: bash scripts/build-release.sh mac
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Anamorphic-macOS-DMG
+          path: Ergebnisse/Anamorphic.dmg
+
+  ios-ipa:
+    runs-on: macos-15
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: iOS-App (unsigniert) bauen
+        run: bash scripts/build-release.sh ios
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Anamorphic-iOS-IPA
+          path: Ergebnisse/Anamorphic.ipa
+
+  core-tests:
+    runs-on: macos-15
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - run: swift test

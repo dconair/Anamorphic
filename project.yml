@@ -1,0 +1,71 @@
+# Erzeugt das Xcode-Projekt (iOS + macOS) mit XcodeGen:
+#   brew install xcodegen && xcodegen generate && open Anamorphic.xcodeproj
+name: Anamorphic
+
+options:
+  bundleIdPrefix: com.example      # <- auf deine eigene Domain ändern
+  deploymentTarget:
+    iOS: "17.0"
+    macOS: "14.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    CODE_SIGN_STYLE: Automatic
+    DEVELOPMENT_TEAM: ""           # <- deine Team-ID (oder in Xcode unter Signing wählen)
+
+targets:
+  Anamorphic-iOS:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources/Core
+      - path: Sources/App
+    settings:
+      base:
+        PRODUCT_NAME: Anamorphic
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.anamorphic
+        TARGETED_DEVICE_FAMILY: "1,2"
+        GENERATE_INFOPLIST_FILE: NO
+    info:
+      path: Config/Info-iOS.plist
+      properties:
+        CFBundleDisplayName: Anamorphic
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
+        UISupportedInterfaceOrientations~ipad: [UIInterfaceOrientationPortrait, UIInterfaceOrientationPortraitUpsideDown, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: true
+        ITSAppUsesNonExemptEncryption: false
+        NSPhotoLibraryUsageDescription: Anamorphic liest Fotos und Videos, die du bearbeiten möchtest.
+        NSPhotoLibraryAddUsageDescription: Anamorphic speichert das fertige Foto oder Video in deiner Mediathek.
+
+  Anamorphic-macOS:
+    type: application
+    platform: macOS
+    sources:
+      - path: Sources/Core
+      - path: Sources/App
+    settings:
+      base:
+        PRODUCT_NAME: Anamorphic
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.anamorphic
+        ENABLE_HARDENED_RUNTIME: YES
+        GENERATE_INFOPLIST_FILE: NO
+    info:
+      path: Config/Info-macOS.plist
+      properties:
+        CFBundleDisplayName: Anamorphic
+        LSApplicationCategoryType: public.app-category.photography
+        ITSAppUsesNonExemptEncryption: false
+        NSPhotoLibraryUsageDescription: Anamorphic liest Fotos und Videos, die du bearbeiten möchtest.
+        NSPhotoLibraryAddUsageDescription: Anamorphic speichert das fertige Foto oder Video in deiner Mediathek.
+    entitlements:
+      path: Config/Anamorphic-macOS.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+        com.apple.security.files.user-selected.read-write: true
+        com.apple.security.personal-information.photos-library: true
