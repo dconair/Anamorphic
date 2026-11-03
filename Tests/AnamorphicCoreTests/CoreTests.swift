@@ -76,6 +76,8 @@ final class GeometryTests: XCTestCase {
     func testOriginalKeepsFullFrame() {
         var s = AnamorphicSettings()
         s.aspect = .original
+        s.desqueeze = 1.0
+        s.edgeStretch = 0
         let g = s.geometry(for: CGSize(width: 4032, height: 3024))
         XCTAssertEqual(g.crop.size, CGSize(width: 4032, height: 3024))
     }

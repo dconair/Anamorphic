@@ -8,11 +8,6 @@ on:
 permissions:
   contents: write
 
-# Neuer Push bricht veraltete Läufe ab (sonst gibt es Fehler-Mails zu überholten Ständen)
-concurrency:
-  group: build-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   macos-dmg:
     runs-on: macos-15
