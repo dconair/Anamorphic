@@ -108,6 +108,9 @@ final class AnamorphicRenderer: @unchecked Sendable {
         return f.outputImage ?? img
     }
 
+    private func toGamma(_ img: CIImage) -> CIImage { img.applyingFilter("CILinearToSRGBToneCurve") }
+    private func toLinear(_ img: CIImage) -> CIImage { img.applyingFilter("CISRGBToneCurveToLinear") }
+
     private func scaled(_ img: CIImage, by k: Double) -> CIImage {
         matrix(img, r: [k, 0, 0, 0], g: [0, k, 0, 0], b: [0, 0, k, 0])
     }
@@ -363,11 +366,11 @@ final class AnamorphicRenderer: @unchecked Sendable {
         if abs(s.contrast) > 0.001 || abs(s.saturation) > 0.001 {
             // Kontrast wirkt in Gamma-Raum natürlicher als im linearen Arbeitsraum.
             let f = CIFilter.colorControls()
-            f.inputImage = img.linearToSRGBToneCurve
+            f.inputImage = toGamma(img)
             f.contrast = Float(1 + s.contrast * 0.5)
             f.saturation = Float(1 + s.saturation)
             f.brightness = 0
-            img = (f.outputImage ?? img.linearToSRGBToneCurve).srgbToneCurveToLinear
+            img = toLinear(f.outputImage ?? toGamma(img))
         }
         return img
     }
@@ -411,9 +414,9 @@ final class AnamorphicRenderer: @unchecked Sendable {
 
         let blend = CIFilter.overlayBlendMode()
         blend.inputImage = grainLayer
-        blend.backgroundImage = img.linearToSRGBToneCurve
+        blend.backgroundImage = toGamma(img)
         guard let mixed = blend.outputImage else { return img }
-        return mixed.srgbToneCurveToLinear.cropped(to: rect)
+        return toLinear(mixed).cropped(to: rect)
     }
 
     // MARK: Export-Helfer
