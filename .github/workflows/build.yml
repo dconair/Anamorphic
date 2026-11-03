@@ -30,6 +30,7 @@ jobs:
             --prerelease
 
   ios-ipa:
+    needs: macos-dmg
     runs-on: macos-15
     continue-on-error: true
     steps:
@@ -40,6 +41,10 @@ jobs:
         with:
           name: Anamorphic-iOS-IPA
           path: Ergebnisse/Anamorphic.ipa
+      - name: IPA zum selben Release hinzufügen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "build-${{ github.run_number }}" Ergebnisse/Anamorphic.ipa
 
   core-tests:
     runs-on: macos-15
