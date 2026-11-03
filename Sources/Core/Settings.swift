@@ -92,13 +92,13 @@ struct AnamorphicSettings: Codable, Equatable, Sendable {
     // Bildformat
     var aspect: AspectTarget = .scope239
     var verticalOffset: Double = 0          // -1 ... 1  (positiv = Ausschnitt nach oben)
-    var desqueeze: Double = 1.2             // 1.0 ... 1.6  mittlere Breitenstreckung des fertigen Bildes
-    var edgeStretch = 0.35                  // 0 ... 1      wie viel stärker der Rand gestreckt wird als die Mitte
+    var desqueeze: Double = 1.33            // 1.0 ... 1.8  mittlere Breitenstreckung des fertigen Bildes
+    var edgeStretch = 0.6                   // 0 ... 1      wie viel stärker der Rand gestreckt wird als die Mitte
     var squeeze = 1.5                       // 1.0 ... 2.0  Anamorphot-Faktor: Bokeh, Korn, Glimmer werden so oval
 
     // Bokeh
     var bokehEnabled = true
-    var bokehAmount = 0.25                  // 0 ... 1
+    var bokehAmount = 0.12                  // 0 ... 1
     var highlightBoost = 0.3                // 0 ... 1   Lichter werden zu Scheiben
     var focusMode: FocusMode = .subject
     var focusX = 0.5                        // 0 ... 1 (Ellipse)
@@ -116,7 +116,7 @@ struct AnamorphicSettings: Codable, Equatable, Sendable {
 
     // Optik
     var aberration = 0.15                   // 0 ... 1  laterale Farbsäume zum Rand
-    var edgeSoftness = 0.2                  // 0 ... 1  Randunschärfe wie bei echten Anamorphoten
+    var edgeSoftness = 0.08                 // 0 ... 1  Randunschärfe wie bei echten Anamorphoten
 
     // Look / Farbe
     var lookID = "cinema"
@@ -200,7 +200,7 @@ enum StylePreset: String, CaseIterable, Identifiable {
         case .tungsten: return "Tungsten 500"
         case .goldenHour: return "Goldene Stunde"
         case .softFilm: return "Soft Film"
-        case .clean: return "Nur Format"
+        case .clean: return "Nur Geometrie"
         }
     }
 
@@ -211,7 +211,7 @@ enum StylePreset: String, CaseIterable, Identifiable {
         case .tungsten: return "Warmes Kunstlicht-Negativ, Bernstein-Flares"
         case .goldenHour: return "Weiches Gegenlicht, warme Lichter"
         case .softFilm: return "Flach und weich, entsättigt, ruhige Szenen"
-        case .clean: return "2.39:1 Zuschnitt, sonst nichts"
+        case .clean: return "Squeeze/Desqueeze-Geometrie, keine Effekte"
         }
     }
 
@@ -227,7 +227,7 @@ enum StylePreset: String, CaseIterable, Identifiable {
             s.flareIntensity = 0.45
             s.flareLength = 0.65
             s.flareTint = .blue
-            s.bokehAmount = 0.35
+            s.bokehAmount = 0.22
             s.highlightBoost = 0.5
             s.grain = 0.2
             s.vignette = 0.35
@@ -260,8 +260,6 @@ enum StylePreset: String, CaseIterable, Identifiable {
             s.lookID = "none"
             s.bokehEnabled = false
             s.flareEnabled = false
-            s.edgeStretch = 0
-            s.desqueeze = 1.0
             s.edgeSoftness = 0
             s.halation = 0
             s.aberration = 0

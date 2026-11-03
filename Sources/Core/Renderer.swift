@@ -44,6 +44,8 @@ final class AnamorphicRenderer: @unchecked Sendable {
         static let aberrationMaxScale = 0.004
         /// Korn: Amplitude bei Stärke = 1
         static let grainAmplitude = 0.45
+        /// Nachschärfen nach der Streckung (CISharpenLuminance)
+        static let stretchSharpen = 0.35
     }
 
     static let outputColorSpace = CGColorSpace(name: CGColorSpace.displayP3) ?? CGColorSpaceCreateDeviceRGB()
@@ -400,6 +402,7 @@ final class AnamorphicRenderer: @unchecked Sendable {
         let height = ext.height
         let b = Stretch.boundaries(width: width, desqueeze: s.desqueeze, edge: s.edgeStretch)
         let base = img.clampedToExtent()
+        let margin = 3                       // Rand für den Lanczos-Filter, damit an den Streifennähten nichts fehlt
 
         var result: CIImage?
         for i in 0..<Stretch.strips {
@@ -407,14 +410,33 @@ final class AnamorphicRenderer: @unchecked Sendable {
             let dx = b.dst[i], ed = b.dst[i + 1]
             guard ex > sx, ed > dx else { continue }
             let factor = CGFloat(ed - dx) / CGFloat(ex - sx)
-            let t = CGAffineTransform(translationX: CGFloat(-sx), y: 0)
-                .concatenating(CGAffineTransform(scaleX: factor, y: 1))
-                .concatenating(CGAffineTransform(translationX: CGFloat(dx), y: 0))
-            let piece = base.transformed(by: t)
+            // Quellstreifen samt Rand → nach links an den Nullpunkt → Lanczos nur in der Breite → an Zielposition
+            let srcRect = CGRect(x: CGFloat(sx - margin), y: 0, width: CGFloat(ex - sx + 2 * margin), height: height)
+            let local = base.cropped(to: srcRect)
+                .transformed(by: CGAffineTransform(translationX: CGFloat(-(sx - margin)), y: 0))
+            let resized: CIImage
+            if abs(factor - 1) < 0.0005 {
+                resized = local
+            } else {
+                let f = CIFilter.lanczosScaleTransform()
+                f.inputImage = local
+                f.scale = 1
+                f.aspectRatio = Float(factor)
+                resized = f.outputImage ?? local.transformed(by: CGAffineTransform(scaleX: factor, y: 1))
+            }
+            let piece = resized
+                .transformed(by: CGAffineTransform(translationX: CGFloat(dx) - CGFloat(margin) * factor, y: 0))
                 .cropped(to: CGRect(x: CGFloat(dx), y: 0, width: CGFloat(ed - dx), height: height))
             result = result.map { piece.composited(over: $0) } ?? piece
         }
-        return result ?? img
+        guard var out = result else { return img }
+        // Das Neuberechnen nimmt etwas Schärfe; ein dezentes Nachschärfen gleicht das aus.
+        let sharp = CIFilter.sharpenLuminance()
+        sharp.inputImage = out
+        sharp.sharpness = Float(Tuning.stretchSharpen)
+        sharp.radius = Float(max(1.0, ext.width * 0.0006))
+        out = (sharp.outputImage ?? out).cropped(to: out.extent)
+        return out
     }
 
     // MARK: 6 – Farbe

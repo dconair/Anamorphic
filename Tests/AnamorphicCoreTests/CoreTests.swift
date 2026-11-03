@@ -194,12 +194,37 @@ final class RendererSmokeTests: XCTestCase {
         flat.aberration = 0; flat.edgeSoftness = 0; flat.grain = 0; flat.vignette = 0
         try write("00-original", flat)
         for preset in StylePreset.allCases { try write("preset-\(preset.rawValue)", preset.settings) }
+
+        // Detail-Szene (Schachbrett + Kreis): zeigt Schärfe, Streckung und Randverlauf
+        let cb = CIFilter.checkerboardGenerator()
+        cb.center = .zero
+        cb.width = 40
+        cb.color0 = CIColor(red: 0.85, green: 0.82, blue: 0.75)
+        cb.color1 = CIColor(red: 0.2, green: 0.22, blue: 0.25)
+        cb.sharpness = 1
+        let detail = cb.outputImage!.cropped(to: CGRect(x: 0, y: 0, width: 1920, height: 1080))
+        let circle = CIFilter.radialGradient()
+        circle.center = CGPoint(x: 960, y: 540)
+        circle.radius0 = 180
+        circle.radius1 = 182
+        circle.color0 = CIColor(red: 0.9, green: 0.3, blue: 0.2)
+        circle.color1 = CIColor(red: 0, green: 0, blue: 0, alpha: 0)
+        let scene = circle.outputImage!.cropped(to: detail.extent).composited(over: detail)
+        func writeDetail(_ name: String, _ s: AnamorphicSettings) throws {
+            let out = renderer.process(scene, settings: s, lut: LookLibrary.lut(for: s.lookID), subjectMask: nil, frameSeed: 1)
+            try renderer.encode(out, format: .png).write(to: URL(fileURLWithPath: dir).appendingPathComponent("\(name).png"))
+        }
+        try writeDetail("detail-original", flat)
+        try writeDetail("detail-geometrie", StylePreset.clean.settings)
+        try writeDetail("detail-natural", StylePreset.natural.settings)
     }
 
     func testFlareBrightensAroundLights() {
         let renderer = AnamorphicRenderer()
         var off = StylePreset.clean.settings
         off.aspect = .original
+        off.desqueeze = 1
+        off.edgeStretch = 0
         var on = off
         on.flareEnabled = true
         on.flareIntensity = 1
@@ -254,8 +279,8 @@ final class AnalysisTests: XCTestCase {
         base.desqueeze = 1.5
         base.edgeStretch = 0
         let s = ImageAnalyzer.tuned(base, for: a)
-        XCTAssertLessThanOrEqual(s.desqueeze, 1.15)
-        XCTAssertGreaterThanOrEqual(s.edgeStretch, 0.4)
+        XCTAssertLessThanOrEqual(s.desqueeze, 1.25)
+        XCTAssertGreaterThanOrEqual(s.edgeStretch, 0.6)
     }
 
     func testBlendInterpolatesNumbers() {

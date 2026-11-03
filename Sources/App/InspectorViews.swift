@@ -337,7 +337,7 @@ private struct LensPanel: View {
 
         Group_(title: "Anamorphot") {
             Param(model: model, title: "Linsen-Squeeze", keyPath: \.squeeze, range: 1...2, format: Fmt.factor)
-            Param(model: model, title: "Breitenstreckung", keyPath: \.desqueeze, range: 1...1.6, format: Fmt.factor)
+            Param(model: model, title: "Breitenstreckung", keyPath: \.desqueeze, range: 1...1.8, format: Fmt.factor)
             Param(model: model, title: "Randdehnung", keyPath: \.edgeStretch, range: 0...1)
             Param(model: model, title: "Randunschärfe", keyPath: \.edgeSoftness, range: 0...1)
             Hint("Wie bei einer echten Anamorphot-Aufnahme: Unschärfe, Flares und Korn entstehen im gequetschten Bild und werden danach mit dem Faktor der Breitenstreckung wieder auseinandergezogen. Daher sind Bokeh-Scheiben oval. Der Linsen-Squeeze bestimmt die Ovalität (1.5× ≈ 1.5:1). Randdehnung streckt die Bildränder stärker als die Mitte (leichter Weitwinkel-„Mumps“-Effekt), Randunschärfe macht die Ränder weicher. Für Material, das schon anamorph gefilmt wurde, Streckung auf den Adapter-Faktor stellen (z. B. 1.33×).")
