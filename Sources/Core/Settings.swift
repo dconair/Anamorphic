@@ -94,7 +94,7 @@ struct AnamorphicSettings: Codable, Equatable, Sendable {
     var verticalOffset: Double = 0          // -1 ... 1  (positiv = Ausschnitt nach oben)
     var desqueeze: Double = 1.0             // 1.0 ... 1.8  mittlere Breitenstreckung des fertigen Bildes
     var expandEnabled = true                // Bildwinkel erweitern: Randzonen werden weiter gedehnt, die Mitte bleibt
-    var expansion = 1.2                     // 1.0 ... 1.5  Faktor, um den das Bild insgesamt breiter wird (Bildwinkel)
+    var expansion = 1.12                    // 1.0 ... 1.5  Faktor, um den das Bild insgesamt breiter wird (Bildwinkel)
     var edgeStretch = 0.5                   // 0 ... 1      wie viel stärker der Rand gestreckt wird als die Mitte
     var squeeze = 1.5                       // 1.0 ... 2.0  Anamorphot-Faktor: Bokeh, Korn, Glimmer werden so oval
 

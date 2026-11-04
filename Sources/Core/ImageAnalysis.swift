@@ -69,16 +69,25 @@ enum ImageAnalyzer {
         a.saturation = sumSat / n
         a.warmth = (sumR - sumB) / n
 
-        // Lichtquellen: ausgebrannte Pixel, deren Umgebung deutlich dunkler ist (kleine, isolierte Punkte)
+        // Lichtquellen: helle Pixel, deren Umgebung deutlich dunkler ist (Lampen, Sonne). In dunklen Szenen
+        // reicht schon etwas weniger Helligkeit, weil Kamera und Verkleinerung Lichter abschwächen.
+        let night = a.meanLuma < 0.30
+        let hot = night ? 0.85 : 0.94
+        let surround = hot * 0.6
         var spots = 0
-        for y in 3..<max(3, h - 3) {
-            for x in 3..<max(3, w - 3) where luma[y * w + x] > 0.97 {
+        for y in 4..<max(4, h - 4) {
+            for x in 4..<max(4, w - 4) where luma[y * w + x] > hot {
                 var sum = 0.0
-                for dy in -3...3 { for dx in -3...3 { sum += luma[(y + dy) * w + (x + dx)] } }
-                if sum / 49 < 0.55 { spots += 1 }
+                for dy in -4...4 { for dx in -4...4 { sum += luma[(y + dy) * w + (x + dx)] } }
+                if sum / 81 < surround { spots += 1 }
             }
         }
-        a.lightSourceCount = spots >= 3 ? spots / 2 : 0
+        a.lightSourceCount = spots >= 3 ? max(1, spots / 3) : 0
+        // Große Lichtquelle (Sonne im Bild): ein klar begrenzter, heller Fleck ohne dass die Szene überstrahlt
+        if a.lightSourceCount == 0, a.clippedFraction > 0.002, a.clippedFraction < 0.12 {
+            let bright = luma.filter { $0 > 0.94 }.count
+            if Double(bright) / n > 0.002 { a.lightSourceCount = 1 }
+        }
 
         // Kantendichte
         var grad = 0.0
@@ -147,8 +156,10 @@ enum ImageAnalyzer {
         if a.faceCount > 0 {
             s.desqueeze = min(s.desqueeze, 1.1)
             s.edgeStretch = min(s.edgeStretch, 0.4)
-            s.expansion = min(s.expansion, 1.15)
+            s.expansion = min(s.expansion, 1.08)
         }
+        // Viel Feinstruktur (Architektur, Laub): Randdehnung sichtbar als Verschmieren, daher zurücknehmen
+        if a.edgeDensity > 0.04 { s.expansion = min(s.expansion, 1.08); s.edgeStretch = min(s.edgeStretch, 0.35) }
         if a.isSoft { s.bokehAmount *= 0.4 }
         if a.meanLuma < 0.22 { s.exposure += 0.3 }
         if a.meanLuma > 0.75 { s.exposure -= 0.25 }

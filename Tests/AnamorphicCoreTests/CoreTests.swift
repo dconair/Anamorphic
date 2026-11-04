@@ -134,7 +134,7 @@ final class GeometryTests: XCTestCase {
     func testExpansionOnByDefault() {
         let s = AnamorphicSettings()
         let g = s.geometry(for: CGSize(width: 4000, height: 3000))
-        XCTAssertEqual(g.stretchedSize.width / 4000, 1.2, accuracy: 0.04)
+        XCTAssertEqual(g.stretchedSize.width / 4000, 1.15, accuracy: 0.05)
     }
 
     func testStretchEdgesStretchMoreThanCenter() {
