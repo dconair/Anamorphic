@@ -132,7 +132,7 @@ enum SubtitleRenderer {
         ctx.clear(CGRect(x: 0, y: 0, width: w, height: h))
 
         // Schriftgröße relativ zur Bildhöhe → Vorschau und Export stimmen überein
-        let styleFactor: CGFloat = k.style == .brat ? 1.25 : 1.0
+        let styleFactor: CGFloat = k.style == .brat ? 1.7 : 1.0
         let fontSize = CGFloat(h) * 0.050 * (0.65 + CGFloat(k.size) * 1.0) * styleFactor
         let font = k.font.ctFont(size: fontSize)
         let display = k.style == .brat ? k.text.lowercased() : k.text
