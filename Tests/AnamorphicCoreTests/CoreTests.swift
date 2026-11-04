@@ -247,6 +247,33 @@ final class RendererSmokeTests: XCTestCase {
         try writeDetail("detail-original", flat)
         try writeDetail("detail-geometrie", StylePreset.clean.settings)
         try writeDetail("detail-natural", StylePreset.natural.settings)
+
+        // Untertitel-Stile (auf der Detail-Szene, nur Geometrie): Brat = nur Schrift ohne Hintergrund
+        for style in SubtitleStyle.allCases {
+            var t = StylePreset.clean.settings
+            t.subtitleEnabled = true
+            t.subtitleText = style == .brat ? "so brat" : "I\u{2019}ll be back."
+            t.subtitleStyle = style
+            t.subtitleFont = style.defaultFont
+            t.subtitleColor = style.defaultColor
+            t.subtitleSoftness = style.defaultSoftness
+            t.subtitleSize = 0.6
+            try writeDetail("untertitel-\(style.rawValue)", t)
+        }
+    }
+
+    func testSubtitleColorIsRendered() {
+        var s = StylePreset.clean.settings
+        s.subtitleEnabled = true
+        s.subtitleText = "test"
+        s.subtitleStyle = .brat
+        s.subtitleColor = [1, 0, 0]
+        let layer = SubtitleRenderer.layer(for: s, size: CGSize(width: 800, height: 450))
+        XCTAssertNotNil(layer)
+        s.subtitleColor = [0, 0, 1]
+        let other = SubtitleRenderer.layer(for: s, size: CGSize(width: 800, height: 450))
+        XCTAssertNotNil(other)
+        XCTAssertNotEqual(layer, other)   // andere Farbe → neu gezeichnet statt aus dem Cache
     }
 
     /// Echte Fotos (nur mit SAMPLE_DIR): lädt eine feste Auswahl verschiedener Motive, läuft durch denselben Weg wie

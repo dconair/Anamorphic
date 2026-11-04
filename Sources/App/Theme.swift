@@ -251,8 +251,8 @@ struct SectionHeader: View {
 
 // MARK: - Segment-Regler
 
-/// Regler als Reihe kleiner Leuchtsegmente mit Punktmatrix-Anzeige. Die Bedienung übernimmt ein (fast)
-/// unsichtbarer System-Slider – das behält Scrollverhalten, Tastatur- und VoiceOver-Bedienung bei.
+/// Regler als Reihe kleiner Leuchtsegmente mit Punktmatrix-Anzeige. Bedienung per Ziehen oder Tippen,
+/// Doppeltippen auf die Beschriftung setzt den Standardwert; VoiceOver kann den Wert schrittweise ändern.
 struct ScaleSlider: View {
     let title: String
     @Binding var value: Double
@@ -277,52 +277,81 @@ struct ScaleSlider: View {
                 Spacer()
                 DotValue(text: format(value), color: active ? accent : Theme.text)
             }
-            ZStack {
-                Canvas { ctx, size in
-                    let inset = Theme.sliderInset
-                    let usable = size.width - inset * 2
-                    let segments = 36
-                    let gap: CGFloat = 2.5
-                    let w = (usable - gap * CGFloat(segments - 1)) / CGFloat(segments)
-                    let neutralIndex: Int? = neutral.map {
-                        let nf = (($0 - range.lowerBound) / (range.upperBound - range.lowerBound)).clamped(0, 1)
-                        return Int((nf * Double(segments - 1)).rounded())
-                    }
-                    let lit = Int((fraction * Double(segments)).rounded())
-
-                    for i in 0..<segments {
-                        let x = inset + CGFloat(i) * (w + gap)
-                        let isLit: Bool
-                        if let n = neutralIndex {
-                            // Bipolare Regler leuchten von der Neutralmarke aus
-                            let cur = Int((fraction * Double(segments - 1)).rounded())
-                            isLit = (i >= min(n, cur) && i <= max(n, cur)) && !(cur == n && i != n)
-                        } else {
-                            isLit = i < lit
+            .contentShape(Rectangle())
+            .onTapGesture(count: 2) { if let d = defaultValue { value = d } }
+            GeometryReader { geo in
+                ZStack {
+                    Canvas { ctx, size in
+                        let inset = Theme.sliderInset
+                        let usable = size.width - inset * 2
+                        let segments = 36
+                        let gap: CGFloat = 2.5
+                        let w = (usable - gap * CGFloat(segments - 1)) / CGFloat(segments)
+                        let neutralIndex: Int? = neutral.map {
+                            let nf = (($0 - range.lowerBound) / (range.upperBound - range.lowerBound)).clamped(0, 1)
+                            return Int((nf * Double(segments - 1)).rounded())
                         }
-                        let h: CGFloat = (i % 6 == 0) ? 16 : 12
-                        let rect = CGRect(x: x, y: size.height - h, width: w, height: h)
-                        let path = Path(roundedRect: rect, cornerRadius: 1.2)
-                        ctx.fill(path, with: .color(isLit ? (active ? accent : Theme.text) : Theme.hairline))
-                    }
-                    // Neutralmarke
-                    if let n = neutralIndex {
-                        let x = inset + CGFloat(n) * (w + gap) + w / 2
-                        ctx.fill(Path(ellipseIn: CGRect(x: x - 1.5, y: 0, width: 3, height: 3)), with: .color(Theme.dim))
-                    }
-                }
-                .allowsHitTesting(false)
+                        let lit = Int((fraction * Double(segments)).rounded())
 
-                Slider(value: $value, in: range) { editing in active = editing }
-                    .opacity(0.02)
-                    .accessibilityLabel(title)
+                        for i in 0..<segments {
+                            let x = inset + CGFloat(i) * (w + gap)
+                            let isLit: Bool
+                            if let n = neutralIndex {
+                                // Bipolare Regler leuchten von der Neutralmarke aus
+                                let cur = Int((fraction * Double(segments - 1)).rounded())
+                                isLit = (i >= min(n, cur) && i <= max(n, cur)) && !(cur == n && i != n)
+                            } else {
+                                isLit = i < lit
+                            }
+                            let h: CGFloat = (i % 6 == 0) ? 16 : 12
+                            let rect = CGRect(x: x, y: size.height - h, width: w, height: h)
+                            let path = Path(roundedRect: rect, cornerRadius: 1.2)
+                            ctx.fill(path, with: .color(isLit ? (active ? accent : Theme.text) : Theme.hairline))
+                        }
+                        // Neutralmarke
+                        if let n = neutralIndex {
+                            let x = inset + CGFloat(n) * (w + gap) + w / 2
+                            ctx.fill(Path(ellipseIn: CGRect(x: x - 1.5, y: 0, width: 3, height: 3)), with: .color(Theme.dim))
+                        }
+                    }
+                    .allowsHitTesting(false)
+
+                    // Eigene Bedienung per Ziehen oder Tippen (der frühere unsichtbare System-Slider nahm keine Eingaben an)
+                    Color.clear
+                        .contentShape(Rectangle())
+                        .gesture(
+                            DragGesture(minimumDistance: 0)
+                                .onChanged { g in
+                                    active = true
+                                    set(x: g.location.x, width: geo.size.width)
+                                }
+                                .onEnded { _ in active = false }
+                        )
+                }
             }
-            .frame(height: 24)
+            .frame(height: 28)
+            .accessibilityElement()
+            .accessibilityLabel(title)
+            .accessibilityValue(format(value))
+            .accessibilityAdjustableAction { direction in
+                let step = (range.upperBound - range.lowerBound) / 20
+                switch direction {
+                case .increment: value = min(range.upperBound, value + step)
+                case .decrement: value = max(range.lowerBound, value - step)
+                @unknown default: break
+                }
+            }
         }
-        .contentShape(Rectangle())
-        .onTapGesture(count: 2) {
-            if let d = defaultValue { value = d }
-        }
+    }
+
+    private func set(x: CGFloat, width: CGFloat) {
+        let inset = Theme.sliderInset
+        let usable = max(1, width - inset * 2)
+        let f = Double(((x - inset) / usable)).clamped(0, 1)
+        var v = range.lowerBound + f * (range.upperBound - range.lowerBound)
+        // Neutralpunkt rastet leicht ein
+        if let n = neutral, abs(v - n) < (range.upperBound - range.lowerBound) * 0.015 { v = n }
+        value = v
     }
 }
 

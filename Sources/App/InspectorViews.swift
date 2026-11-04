@@ -471,9 +471,34 @@ private struct TitlePanel: View {
                     Text("Stil").gateCaption()
                     OptionStrip(items: SubtitleStyle.allCases, selection: styleBinding) { $0.title }
                     if model.settings.subtitleStyle == .brat {
-                        Hint("Schwarzer Kleinbuchstaben-Text auf #8ACE00, leicht verwaschen. Ein Stilwechsel setzt die dazu passende Schrift.")
+                        Hint("Nur Schrift ohne Hintergrund: klein geschrieben, schmale Grotesk, leicht verwaschen, standardmäßig Orange. Ein Stilwechsel setzt Schrift und Farbe des Stils.")
                     }
                 }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Schriftfarbe").gateCaption()
+                    HStack(spacing: 10) {
+                        ForEach(Self.textColors, id: \.name) { c in
+                            let on = isSelected(c.rgb)
+                            Button { model.settings.subtitleColor = c.rgb } label: {
+                                Circle().fill(Color(rgb: c.rgb))
+                                    .frame(width: 22, height: 22)
+                                    .overlay(Circle().stroke(on ? Theme.text : Theme.faint, lineWidth: on ? 2 : 1))
+                                    .padding(3)
+                                    .contentShape(Circle())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(c.name)
+                            .accessibilityAddTraits(on ? .isSelected : [])
+                        }
+                        Spacer(minLength: 4)
+                        ColorPicker("Eigene", selection: Binding(
+                            get: { Color(rgb: model.settings.subtitleColor) },
+                            set: { model.settings.subtitleColor = $0.rgbComponents }), supportsOpacity: false)
+                            .labelsHidden()
+                    }
+                }
+                Param(model: model, title: "Weichzeichnung", keyPath: \.subtitleSoftness, range: 0...1)
 
                 Param(model: model, title: "Größe", keyPath: \.subtitleSize, range: 0...1)
                 Param(model: model, title: "Höhe über Unterkante", keyPath: \.subtitlePosition, range: 0...0.4)
@@ -524,6 +549,20 @@ private struct TitlePanel: View {
         }
     }
 
+    private static let textColors: [(name: String, rgb: [Double])] = [
+        ("Weiß", [0.98, 0.98, 0.96]),
+        ("Gelb", [1.0, 0.86, 0.22]),
+        ("Orange", [1.0, 0.45, 0.05]),
+        ("Brat-Grün", [0.541, 0.808, 0.0]),
+        ("Rosa", [1.0, 0.45, 0.72]),
+        ("Schwarz", [0.03, 0.03, 0.03]),
+    ]
+
+    private func isSelected(_ rgb: [Double]) -> Bool {
+        let c = model.settings.subtitleColor
+        return c.count == 3 && zip(c, rgb).allSatisfy { abs($0 - $1) < 0.01 }
+    }
+
     private func sample(_ font: SubtitleFont) -> String {
         model.settings.subtitleStyle == .brat ? "so brat" : "I\u{2019}ll be back."
     }
@@ -533,6 +572,8 @@ private struct TitlePanel: View {
                 set: {
                     model.settings.subtitleStyle = $0
                     model.settings.subtitleFont = $0.defaultFont
+                    model.settings.subtitleColor = $0.defaultColor
+                    model.settings.subtitleSoftness = $0.defaultSoftness
                 })
     }
 }

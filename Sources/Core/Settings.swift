@@ -137,6 +137,8 @@ struct AnamorphicSettings: Codable, Equatable, Sendable {
     var subtitleText = ""
     var subtitleStyle: SubtitleStyle = .cinema
     var subtitleFont: SubtitleFont = .sans
+    var subtitleColor: [Double] = SubtitleStyle.cinema.defaultColor   // RGB 0…1, Schriftfarbe
+    var subtitleSoftness = 0.0              // 0 ... 1  Weichzeichnung der Schrift (Brat: leicht verwaschen)
     var subtitleSize = 0.45                 // 0 ... 1
     var subtitleStart = 0.0                 // Sekunden; erscheint ab hier (nur Video)
     var subtitleEnd = 0.0                   // Sekunden; 0 = bis zum Ende des Videos

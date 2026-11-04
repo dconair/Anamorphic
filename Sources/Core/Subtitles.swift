@@ -11,7 +11,7 @@ enum SubtitleStyle: String, Codable, CaseIterable, Identifiable, Sendable {
     case cinema
     /// Gelb mit dunkler Kontur – klassischer Kino-/DVD-Untertitel
     case classic
-    /// Schwarzer, leicht verwaschener Kleinbuchstaben-Text auf Brat-Grün
+    /// Nur Schrift, ohne Hintergrund: kleingeschrieben, schmale Grotesk, leicht verwaschen, standardmäßig Orange
     case brat
 
     var id: String { rawValue }
@@ -22,6 +22,18 @@ enum SubtitleStyle: String, Codable, CaseIterable, Identifiable, Sendable {
         case .brat: return "Brat"
         }
     }
+
+    /// Standard-Schriftfarbe (RGB 0…1); im Editor frei änderbar
+    var defaultColor: [Double] {
+        switch self {
+        case .cinema: return [0.98, 0.98, 0.96]
+        case .classic: return [1.0, 0.86, 0.22]
+        case .brat: return [1.0, 0.45, 0.05]
+        }
+    }
+
+    /// Standard-Weichzeichnung der Schrift
+    var defaultSoftness: Double { self == .brat ? 0.35 : 0 }
 
     /// Passende Standardschrift zum Stil
     var defaultFont: SubtitleFont {
@@ -83,6 +95,8 @@ enum SubtitleRenderer {
         let font: SubtitleFont
         let size: Double
         let position: Double
+        let color: [Double]
+        let softness: Double
         let width: Int
         let height: Int
     }
@@ -99,7 +113,7 @@ enum SubtitleRenderer {
         guard s.subtitleEnabled, !text.isEmpty, size.width >= 2, size.height >= 2 else { return nil }
 
         let key = Key(text: text, style: s.subtitleStyle, font: s.subtitleFont, size: s.subtitleSize,
-                      position: s.subtitlePosition, width: Int(size.width), height: Int(size.height))
+                      position: s.subtitlePosition, color: s.subtitleColor, softness: s.subtitleSoftness, width: Int(size.width), height: Int(size.height))
         cache.lock.lock()
         defer { cache.lock.unlock() }
         if cache.key == key, let hit = cache.image { return hit }
@@ -131,6 +145,9 @@ enum SubtitleRenderer {
             return CTParagraphStyleCreate(&setting, 1)
         }
 
+        let rgb = k.color.count == 3 ? k.color : k.style.defaultColor
+        let fill = CGColor(red: rgb[0], green: rgb[1], blue: rgb[2], alpha: 1)
+
         let attributes: [CFString: Any] = [
             kCTFontAttributeName: font,
             kCTParagraphStyleAttributeName: paragraph,
@@ -153,23 +170,20 @@ enum SubtitleRenderer {
         case .cinema:
             ctx.setShadow(offset: CGSize(width: 0, height: -fontSize * 0.05), blur: fontSize * 0.22,
                           color: CGColor(red: 0, green: 0, blue: 0, alpha: 0.9))
-            ctx.setFillColor(CGColor(red: 0.98, green: 0.98, blue: 0.96, alpha: 1))
+            ctx.setFillColor(fill)
             ctx.setTextDrawingMode(.fill)
 
         case .classic:
             ctx.setLineJoin(.round)
             ctx.setLineWidth(max(1, fontSize * 0.07))
             ctx.setStrokeColor(CGColor(red: 0.04, green: 0.04, blue: 0.04, alpha: 1))
-            ctx.setFillColor(CGColor(red: 1.0, green: 0.86, blue: 0.22, alpha: 1))
+            ctx.setFillColor(fill)
             ctx.setTextDrawingMode(.fillStroke)
 
         case .brat:
-            // #8ACE00 – das Brat-Grün
-            let pad = fontSize * 0.28
-            let box = CGRect(x: (CGFloat(w) - textW) / 2, y: bottom, width: textW, height: textH).insetBy(dx: -pad, dy: -pad * 0.6)
-            ctx.setFillColor(CGColor(red: 0.541, green: 0.808, blue: 0.0, alpha: 1))
-            ctx.fill(box)
-            ctx.setFillColor(CGColor(red: 0.02, green: 0.02, blue: 0.02, alpha: 1))
+            // Nur Schrift, kein Kasten. Ein sehr weicher, dunkler Hof hält sie auf hellem Bild lesbar.
+            ctx.setShadow(offset: .zero, blur: fontSize * 0.35, color: CGColor(red: 0, green: 0, blue: 0, alpha: 0.35))
+            ctx.setFillColor(fill)
             ctx.setTextDrawingMode(.fill)
         }
 
@@ -180,11 +194,11 @@ enum SubtitleRenderer {
         guard let cg = ctx.makeImage() else { return nil }
         var image = CIImage(cgImage: cg)
 
-        if k.style == .brat {
-            // Der typische leicht unscharfe, "zu stark komprimierte" Brat-Text
+        if k.softness > 0.01 {
+            // Leichte Weichzeichnung, beim Brat-Stil der typische "verwaschene" Text
             let blur = CIFilter.gaussianBlur()
             blur.inputImage = image.clampedToExtent()
-            blur.radius = Float(max(0.8, Double(h) * 0.0016))
+            blur.radius = Float(max(0.3, Double(h) * 0.0045 * k.softness))
             image = (blur.outputImage ?? image).cropped(to: CGRect(x: 0, y: 0, width: w, height: h))
         }
         return image

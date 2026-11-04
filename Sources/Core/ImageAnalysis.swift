@@ -200,6 +200,7 @@ extension AnamorphicSettings {
         r.contrast = m(a.contrast, b.contrast)
         r.saturation = m(a.saturation, b.saturation)
         r.subtitleSize = m(a.subtitleSize, b.subtitleSize)
+        r.subtitleSoftness = m(a.subtitleSoftness, b.subtitleSoftness)
         r.subtitlePosition = m(a.subtitlePosition, b.subtitlePosition)
         r.grain = m(a.grain, b.grain)
         r.grainSize = m(a.grainSize, b.grainSize)
