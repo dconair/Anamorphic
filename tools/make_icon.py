@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Erzeugt das App-Icon (iOS 1024 px, macOS-Größen) im Stil der App ("Gate"):
-warmes Schwarz, Sucher-Eckmarken, 2.39:1-Rahmenlinie, ein ovales Anamorphot-Bokeh in Tungsten-Bernstein
-und ein horizontaler blauer Streak, der durch das Bokeh läuft.
+warmes Schwarz, Kamerasensor mit Bayer-Farbfilter, heller 2.39:1-Zuschnitt und ein Bernstein-Doppelpfeil
+für Squeeze/Desqueeze.
 
 Aufruf: python3 tools/make_icon.py   (benötigt Pillow und numpy)
 """
@@ -37,67 +37,85 @@ def add(canvas, m, color, strength):
     canvas += m[..., None] * color * strength
 
 
+# Bayer-Filter (RGGB), gedämpft, damit der Zuschnitt-Ausschnitt heraussticht
+CELL_R = np.array([196, 70, 52], float)
+CELL_G = np.array([84, 156, 78], float)
+CELL_B = np.array([66, 112, 214], float)
+
+
 def render_art(a):
-    """Quadratische Bildfläche a × a, RGB float."""
+    """Quadratische Bildfläche a × a, RGB float.
+
+    Motiv: ein Kamerasensor mit Bayer-Farbfilter (RGGB-Raster). Ein heller 2.39:1-Ausschnitt in der Mitte
+    steht für den Zuschnitt, der bernsteinfarbene Doppelpfeil darin für Squeeze/Desqueeze.
+    """
     yy, xx = np.mgrid[0:a, 0:a].astype(float)
     cx = cy = a / 2
-    u = (xx - cx) / a
-    v = (yy - cy) / a
-
-    # Hintergrund: sehr leichte Aufhellung zur Mitte
-    r = np.sqrt(u * u + v * v) / 0.7
+    r = np.sqrt(((xx - cx) / a) ** 2 + ((yy - cy) / a) ** 2) / 0.7
     canvas = BG + (BG_LIFT - BG) * np.clip(1 - r, 0, 1)[..., None] ** 2
+    img = Image.fromarray(canvas.astype(np.uint8), "RGB")
+    d = ImageDraw.Draw(img)
 
-    # 2.39:1-Rahmenlinie
-    fw, fh = 0.66 * a, 0.66 * a / 2.39
-    t = max(1, int(a * 0.005))
-    frame = mask_img(a, lambda d: d.rectangle([cx - fw / 2, cy - fh / 2, cx + fw / 2, cy + fh / 2], outline=255, width=t))
-    add(canvas, blur(frame, a * 0.0008), HAIR, 1.0)
+    n = 13
+    size = 0.78 * a
+    x0, y0 = cx - size / 2, cy - size / 2
+    cell = size / n
+    gap = cell * 0.09
+    rad = cell * 0.14
 
-    # Sucher-Eckmarken
-    inset, ln, th = 0.15 * a, 0.075 * a, max(2, int(a * 0.011))
+    # Sensor-Rahmen
+    pad = cell * 0.45
+    d.rounded_rectangle([x0 - pad, y0 - pad, x0 + size + pad, y0 + size + pad], radius=cell * 0.5,
+                        outline=tuple(int(c) for c in HAIR), width=max(2, int(a * 0.006)))
 
-    def marks(d):
-        for sx in (0, 1):
-            for sy in (0, 1):
-                x = inset if sx == 0 else a - inset
-                y = inset if sy == 0 else a - inset
-                dx = ln if sx == 0 else -ln
-                dy = ln if sy == 0 else -ln
-                d.rectangle([min(x, x + dx), y - th / 2, max(x, x + dx), y + th / 2], fill=255)
-                d.rectangle([x - th / 2, min(y, y + dy), x + th / 2, max(y, y + dy)], fill=255)
+    # Zuschnitt-Fenster: 13 × 5 Zellen (breites Scope-Format), mittig
+    win_c0, win_c1 = 0.0, 13.0
+    win_r0, win_r1 = 4, 9
 
-    add(canvas, blur(mask_img(a, marks), a * 0.0008), DIM, 0.85)
+    for row in range(n):
+        for col in range(n):
+            # RGGB: gerade Zeile R G R G, ungerade Zeile G B G B
+            if row % 2 == 0:
+                col_rgb = CELL_R if col % 2 == 0 else CELL_G
+            else:
+                col_rgb = CELL_G if col % 2 == 0 else CELL_B
+            inside = win_c0 <= col + 0.5 <= win_c1 and win_r0 <= row < win_r1
+            k = 1.0 if inside else 0.30
+            c = BG * (1 - k) + col_rgb * k
+            xa, ya = x0 + col * cell + gap, y0 + row * cell + gap
+            d.rounded_rectangle([xa, ya, xa + cell - 2 * gap, ya + cell - 2 * gap], radius=rad,
+                                fill=tuple(int(v) for v in c))
 
-    # Zwei kleine, blasse Bokeh-Ovale als Tiefenhinweis
-    for (ox, oy, s, al) in [(-0.26, 0.085, 0.5, 0.30), (0.27, -0.075, 0.38, 0.22)]:
-        rx, ry = 0.17 * a * s, 0.17 * a * s / 1.7
-        m = mask_img(a, lambda d, ox=ox, oy=oy, rx=rx, ry=ry: d.ellipse(
-            [cx + ox * a - rx, cy + oy * a - ry, cx + ox * a + rx, cy + oy * a + ry], fill=255))
-        add(canvas, blur(m, a * 0.002), AMBER, al)
+    canvas = np.asarray(img, float)
 
-    # Großes ovales Bokeh mit hellem Rand und heißem Kern
-    rx, ry = 0.175 * a, 0.175 * a / 1.7
-    oval = mask_img(a, lambda d: d.ellipse([cx - rx, cy - ry, cx + rx, cy + ry], fill=255))
-    om = blur(oval, a * 0.002)
-    dn = np.sqrt((u * a / rx) ** 2 + (v * a / ry) ** 2)
-    fill = CORE[None, None, :] * 0 + (CORE + (AMBER - CORE) * np.clip(dn, 0, 1)[..., None] ** 1.3)
-    rim = np.exp(-((dn - 0.93) / 0.07) ** 2)[..., None] * 0.35
-    body = fill * (0.80 + rim)
-    canvas = canvas * (1 - om[..., None]) + body * om[..., None]
-    add(canvas, blur(oval, a * 0.035), AMBER, 0.55)
+    # Fensterrahmen in Bernstein mit Eckmarken
+    wx0, wx1 = x0 + win_c0 * cell - gap, x0 + win_c1 * cell + gap
+    wy0, wy1 = y0 + win_r0 * cell - gap, y0 + win_r1 * cell + gap
+    th = max(3, int(a * 0.009))
+    frame = mask_img(a, lambda dd: dd.rectangle([wx0, wy0, wx1, wy1], outline=255, width=th))
+    add(canvas, blur(frame, a * 0.0007), AMBER, 1.0)
+    add(canvas, blur(frame, a * 0.02), AMBER, 0.35)
 
-    # Horizontaler Streak, läuft durch das Bokeh
-    sy = a * 0.0055
+    # Doppelpfeil (Squeeze/Desqueeze) mit dunkler Kontur für Lesbarkeit auf dem Raster
+    L = (wx1 - wx0) * 0.80
+    hx0, hx1 = cx - L / 2, cx + L / 2
+    head = a * 0.085
+    shaft = a * 0.030
 
-    def line(d):
-        d.rectangle([a * 0.05, cy - sy, a * 0.95, cy + sy], fill=255)
+    def arrow(dd, grow=0.0, fill=255):
+        g = grow
+        dd.rectangle([hx0 + head * 0.6, cy - shaft / 2 - g, hx1 - head * 0.6, cy + shaft / 2 + g], fill=fill)
+        dd.polygon([(hx0 - g, cy), (hx0 + head + g * 0.6, cy - head * 0.62 - g), (hx0 + head + g * 0.6, cy + head * 0.62 + g)], fill=fill)
+        dd.polygon([(hx1 + g, cy), (hx1 - head - g * 0.6, cy - head * 0.62 - g), (hx1 - head - g * 0.6, cy + head * 0.62 + g)], fill=fill)
 
-    fade = np.clip(1 - np.abs(u * 2 / 0.9) ** 3, 0, 1)
-    core = blur(mask_img(a, line), a * 0.0012) * fade
-    add(canvas, core, BLUE * 0.6 + 255 * 0.4, 1.0)
-    add(canvas, blur(mask_img(a, line), a * 0.012) * fade, BLUE, 0.9)
-    add(canvas, blur(mask_img(a, line), a * 0.04) * fade, BLUE, 0.45)
+    outline = mask_img(a, lambda dd: arrow(dd, grow=a * 0.016))
+    body = mask_img(a, lambda dd: arrow(dd))
+    om = blur(outline, a * 0.003)
+    canvas = canvas * (1 - om[..., None] * 0.88) + BG * om[..., None] * 0.88
+    bm = blur(body, a * 0.0015)
+    arrow_col = CORE * 0.35 + AMBER * 0.65
+    canvas = canvas * (1 - bm[..., None]) + arrow_col * bm[..., None]
+    add(canvas, blur(body, a * 0.03), AMBER, 0.45)
 
     return np.clip(canvas, 0, 255)
 

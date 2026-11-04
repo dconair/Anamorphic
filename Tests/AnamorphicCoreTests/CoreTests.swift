@@ -283,6 +283,20 @@ final class AnalysisTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(s.edgeStretch, 0.6)
     }
 
+    func testSubtitleTimingFadesAndHides() {
+        var s = AnamorphicSettings()
+        s.subtitleStart = 2
+        s.subtitleEnd = 5
+        XCTAssertEqual(s.subtitleOpacity(at: nil), 1)          // Foto
+        XCTAssertEqual(s.subtitleOpacity(at: 1.0), 0)           // davor
+        XCTAssertEqual(s.subtitleOpacity(at: 3.0), 1)           // sichtbar
+        XCTAssertEqual(s.subtitleOpacity(at: 5.5), 0)           // danach
+        XCTAssertGreaterThan(s.subtitleOpacity(at: 2.05), 0)    // Einblenden
+        XCTAssertLessThan(s.subtitleOpacity(at: 2.05), 1)
+        s.subtitleEnd = 0                                       // bis zum Ende
+        XCTAssertEqual(s.subtitleOpacity(at: 100), 1)
+    }
+
     func testBlendInterpolatesNumbers() {
         var a = AnamorphicSettings(); a.grain = 0
         var b = AnamorphicSettings(); b.grain = 1

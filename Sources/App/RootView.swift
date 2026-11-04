@@ -135,7 +135,13 @@ private struct CanvasView: View {
     private var preview: some View {
         let shown = (model.showOriginal ? model.originalImage : model.previewImage) ?? model.previewImage
         VStack(spacing: 10) {
-            if let shown {
+            if let player = model.player {
+                PlayerLayerView(player: player)
+                    .aspectRatio(max(0.1, model.liveOutputSize.width) / max(0.1, model.liveOutputSize.height), contentMode: .fit)
+                    .overlay { ViewfinderMarks().padding(-9) }
+                    .padding(20)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if let shown {
                 Image(decorative: shown, scale: 1)
                     .resizable()
                     .interpolation(.high)
@@ -163,6 +169,19 @@ private struct CanvasView: View {
             }
 
             if model.media == .video {
+                HStack(spacing: 10) {
+                    Button(model.isPlaying ? "Pause" : (model.liveActive ? "Weiter" : "Abspielen")) { model.togglePlay() }
+                        .buttonStyle(GateButtonStyle(kind: .secondary))
+                        .keyboardShortcut(.space, modifiers: [])
+                    if model.liveActive {
+                        Button("Standbild") { model.stopLive() }
+                            .buttonStyle(GateButtonStyle(kind: .secondary))
+                    }
+                    Spacer()
+                    Text(model.liveActive ? "Live-Vorschau, max. 1280 px" : "Einzelbild")
+                        .gateCaption(Theme.faint)
+                }
+                .padding(.horizontal, 20)
                 ScaleSlider(title: "Position", value: $model.videoTime,
                             range: 0...max(0.1, model.videoDuration), format: Fmt.time)
                     .padding(.horizontal, 20)

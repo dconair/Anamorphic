@@ -1,6 +1,7 @@
 import Foundation
 import AVFoundation
 import CoreImage
+import CoreImage.CIFilterBuiltins
 
 enum VideoExportError: LocalizedError {
     case noVideoTrack
@@ -44,7 +45,8 @@ enum VideoExporter {
                                        settings: settings,
                                        lut: lut,
                                        subjectMask: nil,   // Ellipse statt Motiv-Maske: pro Frame deutlich schneller
-                                       frameSeed: seed)
+                                       frameSeed: seed,
+                                       time: request.compositionTime.seconds)
             request.finish(with: out, context: renderer.context)
         }
         composition.renderSize = geometry.outputSize
@@ -93,6 +95,43 @@ enum VideoExporter {
         } onCancel: {
             session.cancelExport()
         }
+    }
+
+    /// Komposition für die Live-Wiedergabe: Quelle wird auf `previewWidth` verkleinert, Einstellungen werden
+    /// bei jedem Bild frisch aus `provider` gelesen, sodass Regler sofort wirken.
+    static func liveComposition(asset: AVAsset,
+                                sourceSize: CGSize,
+                                previewWidth: CGFloat = 1280,
+                                renderer: AnamorphicRenderer,
+                                provider: @escaping @Sendable () -> (AnamorphicSettings, CubeLUT?)) -> (AVMutableVideoComposition, CGSize) {
+        let scale = min(1, previewWidth / max(1, sourceSize.width))
+        let scaled = CGSize(width: (sourceSize.width * scale).rounded(), height: (sourceSize.height * scale).rounded())
+        let output = provider().0.geometry(for: scaled).outputSize
+
+        let composition = AVMutableVideoComposition(asset: asset) { request in
+            let (s, lut) = provider()
+            var src = request.sourceImage
+            if scale < 1 {
+                let f = CIFilter.lanczosScaleTransform()
+                f.inputImage = src
+                f.scale = Float(scale)
+                f.aspectRatio = 1
+                src = (f.outputImage ?? src)
+            }
+            src = src.cropped(to: CGRect(origin: .zero, size: scaled))
+            var out = renderer.process(src, settings: s, lut: lut, subjectMask: nil,
+                                       frameSeed: Int((request.compositionTime.seconds * 24).rounded()),
+                                       time: request.compositionTime.seconds)
+            // Wurde die Geometrie gerade verändert, bevor die Komposition neu gebaut ist, passt die Größe kurz nicht.
+            if abs(out.extent.width - output.width) > 1 || abs(out.extent.height - output.height) > 1 {
+                out = out.transformed(by: CGAffineTransform(scaleX: output.width / out.extent.width,
+                                                            y: output.height / out.extent.height))
+            }
+            request.finish(with: out, context: renderer.context)
+        }
+        composition.renderSize = output
+        composition.frameDuration = CMTime(value: 1, timescale: 30)
+        return (composition, output)
     }
 
     /// Einzelbild für die Vorschau (verkleinert, aufrecht).

@@ -471,6 +471,23 @@ private struct TitlePanel: View {
             }
         }
 
+        if model.settings.subtitleEnabled && model.media == .video {
+            Group_(title: "Zeitsteuerung") {
+                Param(model: model, title: "Erscheint ab", keyPath: \.subtitleStart,
+                      range: 0...max(0.5, model.videoDuration), format: Fmt.time)
+                Param(model: model, title: "Verschwindet bei", keyPath: \.subtitleEnd,
+                      range: 0...max(0.5, model.videoDuration),
+                      format: { $0 <= 0.05 ? "Ende" : Fmt.time($0) })
+                HStack(spacing: 10) {
+                    Button("Start = jetzt") { model.settings.subtitleStart = model.videoTime }
+                        .buttonStyle(GateButtonStyle(kind: .secondary))
+                    Button("Ende = jetzt") { model.settings.subtitleEnd = max(model.videoTime, model.settings.subtitleStart + 0.1) }
+                        .buttonStyle(GateButtonStyle(kind: .secondary))
+                }
+                Hint("Position im Video mit dem Regler unter dem Bild wählen, dann „Start = jetzt“ bzw. „Ende = jetzt“ drücken. Der Untertitel wird kurz ein- und ausgeblendet. Verschwindet bei = Ende: bis zum Schluss sichtbar.")
+            }
+        }
+
         if model.settings.subtitleEnabled {
             Group_(title: "Schrift") {
                 VStack(spacing: 0) {

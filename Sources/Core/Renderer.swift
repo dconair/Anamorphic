@@ -66,7 +66,8 @@ final class AnamorphicRenderer: @unchecked Sendable {
                  settings s: AnamorphicSettings,
                  lut: CubeLUT?,
                  subjectMask: CIImage?,
-                 frameSeed: Int) -> CIImage {
+                 frameSeed: Int,
+                 time: Double? = nil) -> CIImage {
         let original = source.transformed(by: CGAffineTransform(translationX: -source.extent.minX, y: -source.extent.minY))
         var img = original
         let inputExtent = img.extent
@@ -100,7 +101,12 @@ final class AnamorphicRenderer: @unchecked Sendable {
         if s.grain > 0.01 { img = grain(img, s, rect: outRect, seed: frameSeed) }
 
         // 8: Untertitel liegen ganz oben (nach Grading und Korn), wie in der echten Postproduktion
-        if let subs = SubtitleRenderer.layer(for: s, size: outRect.size) {
+        let subtitleAlpha = s.subtitleOpacity(at: time)
+        if subtitleAlpha > 0.001, var subs = SubtitleRenderer.layer(for: s, size: outRect.size) {
+            if subtitleAlpha < 0.999 {
+                subs = subs.applyingFilter("CIColorMatrix", parameters: [
+                    "inputAVector": CIVector(x: 0, y: 0, z: 0, w: CGFloat(subtitleAlpha))])
+            }
             img = subs.composited(over: img)
         }
 

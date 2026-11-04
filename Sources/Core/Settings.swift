@@ -136,12 +136,29 @@ struct AnamorphicSettings: Codable, Equatable, Sendable {
     var subtitleStyle: SubtitleStyle = .cinema
     var subtitleFont: SubtitleFont = .sans
     var subtitleSize = 0.45                 // 0 ... 1
+    var subtitleStart = 0.0                 // Sekunden; erscheint ab hier (nur Video)
+    var subtitleEnd = 0.0                   // Sekunden; 0 = bis zum Ende des Videos
     var subtitlePosition = 0.09             // Abstand der Unterkante, Anteil der Bildhöhe (0 ... 0.4)
 
     // Film
     var grain = 0.15                        // 0 ... 1
     var grainSize = 0.4                     // 0 ... 1
     var vignette = 0.25                     // 0 ... 1
+}
+
+extension AnamorphicSettings {
+    /// Deckkraft des Untertitels zum Zeitpunkt `t` (Sekunden). `nil` = Foto: immer sichtbar.
+    /// Kurze Ein-/Ausblendung (0,15 s), wie bei Streaming-Untertiteln.
+    func subtitleOpacity(at t: Double?) -> Double {
+        guard let t else { return 1 }
+        let fade = 0.15
+        var o = ((t - subtitleStart) / fade).clamped(0, 1)
+        if subtitleEnd > 0.001 {
+            if t > subtitleEnd { return 0 }
+            o = min(o, ((subtitleEnd - t) / fade).clamped(0, 1))
+        }
+        return o
+    }
 }
 
 // MARK: - Geometrie

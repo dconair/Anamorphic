@@ -71,6 +71,12 @@ final class AppModel {
     var videoDuration: Double = 0
     var videoTime: Double = 0
 
+    // Live-Wiedergabe
+    var player: AVPlayer?
+    var isPlaying = false
+    var liveOutputSize: CGSize = .zero
+    var liveActive: Bool { player != nil }
+
     // Export
     var photoFormat: AnamorphicRenderer.PhotoFormat = .jpeg
     var isExporting = false
@@ -90,6 +96,12 @@ final class AppModel {
     @ObservationIgnored private var frameTask: Task<Void, Never>?
     @ObservationIgnored private var exportTask: Task<Void, Never>?
     @ObservationIgnored private var presetTask: Task<Void, Never>?
+    @ObservationIgnored private let liveBox = LiveBox()
+    @ObservationIgnored private var liveAsset: AVURLAsset?
+    @ObservationIgnored private var liveItem: AVPlayerItem?
+    @ObservationIgnored private var liveObserver: Any?
+    @ObservationIgnored private var liveEndObserver: NSObjectProtocol?
+    @ObservationIgnored private var liveRefreshTask: Task<Void, Never>?
 
     var hasMedia: Bool { media != .none }
 
@@ -154,6 +166,7 @@ final class AppModel {
     }
 
     func loadPhoto(data: Data, name: String) async {
+        stopLive(refreshFrame: false)
         guard let full = CIImage(data: data, options: [.applyOrientationProperty: true]) else {
             errorMessage = "Das Bild konnte nicht gelesen werden."
             return
@@ -182,6 +195,7 @@ final class AppModel {
     }
 
     func loadVideo(url: URL, name: String) async {
+        stopLive(refreshFrame: false)
         resetExportState()
         do {
             let asset = AVURLAsset(url: url)
@@ -226,6 +240,14 @@ final class AppModel {
     }
 
     func videoTimeChanged() {
+        if let player {
+            let current = player.currentTime().seconds
+            if !isPlaying || abs(current - videoTime) > 0.35 {
+                player.seek(to: CMTime(seconds: videoTime, preferredTimescale: 600),
+                            toleranceBefore: .zero, toleranceAfter: .zero)
+            }
+            return
+        }
         frameTask?.cancel()
         frameTask = Task {
             try? await Task.sleep(nanoseconds: 80_000_000)
@@ -335,12 +357,17 @@ final class AppModel {
     // MARK: Vorschau
 
     func scheduleRender() {
+        if liveActive {
+            refreshLive()
+            return
+        }
         renderTask?.cancel()
         guard let src = sourceCI else { return }
         let s = settings
         let lut = resolvedLUT()
         let mask = subjectMask
         let seed = Int(videoTime * 24)
+        let time: Double? = media == .video ? videoTime : nil
         let renderer = self.renderer
 
         renderTask = Task {
@@ -348,12 +375,109 @@ final class AppModel {
             if Task.isCancelled { return }
             let cg: CGImage? = await Task.detached(priority: .userInitiated) {
                 // Im Video gibt es keine Motiv-Maske → derselbe Fallback wie im Export.
-                let out = renderer.process(src, settings: s, lut: lut, subjectMask: mask, frameSeed: seed)
+                let out = renderer.process(src, settings: s, lut: lut, subjectMask: mask, frameSeed: seed, time: time)
                 return renderer.context.createCGImage(out, from: out.extent, format: .RGBA8,
                                                       colorSpace: AnamorphicRenderer.outputColorSpace)
             }.value
             if Task.isCancelled { return }
             previewImage = cg
+        }
+    }
+
+    // MARK: Live-Wiedergabe
+
+    /// Spielt das Video mit allen Effekten ab (Vorschau in max. 1280 px Breite, damit es flüssig bleibt).
+    func startLive() {
+        guard media == .video, let url = videoURL, player == nil else { return }
+        let asset = AVURLAsset(url: url)
+        liveAsset = asset
+        liveBox.set(settings, lut: resolvedLUT())
+        let box = liveBox
+        let (composition, size) = VideoExporter.liveComposition(asset: asset, sourceSize: sourcePixelSize,
+                                                                renderer: renderer) { box.get() }
+        liveOutputSize = size
+        let item = AVPlayerItem(asset: asset)
+        item.videoComposition = composition
+        liveItem = item
+        let p = AVPlayer(playerItem: item)
+        p.seek(to: CMTime(seconds: videoTime, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
+
+        liveObserver = p.addPeriodicTimeObserver(forInterval: CMTime(value: 1, timescale: 10), queue: .main) { [weak self] t in
+            MainActor.assumeIsolated {
+                guard let self, self.isPlaying else { return }
+                self.videoTime = min(max(0, t.seconds), self.videoDuration)
+            }
+        }
+        liveEndObserver = NotificationCenter.default.addObserver(forName: AVPlayerItem.didPlayToEndTimeNotification,
+                                                                 object: item, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.isPlaying = false
+                self.player?.seek(to: .zero)
+                self.videoTime = 0
+            }
+        }
+        player = p
+        p.play()
+        isPlaying = true
+    }
+
+    func togglePlay() {
+        guard let player else { startLive(); return }
+        if isPlaying {
+            player.pause()
+            isPlaying = false
+        } else {
+            if videoTime >= videoDuration - 0.05 {
+                player.seek(to: .zero)
+                videoTime = 0
+            }
+            player.play()
+            isPlaying = true
+        }
+    }
+
+    /// Zurück zur Einzelbild-Vorschau.
+    func stopLive(refreshFrame: Bool = true) {
+        guard let player else { return }
+        player.pause()
+        if let obs = liveObserver { player.removeTimeObserver(obs) }
+        if let end = liveEndObserver { NotificationCenter.default.removeObserver(end) }
+        liveObserver = nil
+        liveEndObserver = nil
+        liveRefreshTask?.cancel()
+        self.player = nil
+        liveItem = nil
+        liveAsset = nil
+        isPlaying = false
+        if refreshFrame {
+            Task {
+                await refreshVideoFrame()
+                scheduleRender()
+            }
+        }
+    }
+
+    /// Neue Einstellungen für die laufende Wiedergabe. Regler wirken sofort, weil die Komposition die Werte
+    /// bei jedem Bild neu liest. Nur wenn sich das Ausgabeformat ändert (oder im Pause-Zustand, um das
+    /// stehende Bild neu zu rechnen), wird die Komposition ausgetauscht.
+    private func refreshLive() {
+        liveBox.set(settings, lut: resolvedLUT())
+        liveRefreshTask?.cancel()
+        liveRefreshTask = Task {
+            try? await Task.sleep(nanoseconds: 60_000_000)
+            if Task.isCancelled { return }
+            guard let item = liveItem, let asset = liveAsset else { return }
+            let scale = min(1, 1280 / max(1, sourcePixelSize.width))
+            let scaled = CGSize(width: (sourcePixelSize.width * scale).rounded(), height: (sourcePixelSize.height * scale).rounded())
+            let newSize = settings.geometry(for: scaled).outputSize
+            let sizeChanged = abs(newSize.width - liveOutputSize.width) > 1 || abs(newSize.height - liveOutputSize.height) > 1
+            guard sizeChanged || !isPlaying else { return }
+            let box = liveBox
+            let (composition, size) = VideoExporter.liveComposition(asset: asset, sourceSize: sourcePixelSize,
+                                                                    renderer: renderer) { box.get() }
+            liveOutputSize = size
+            item.videoComposition = composition
         }
     }
 
