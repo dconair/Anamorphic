@@ -15,7 +15,7 @@ struct RootView: View {
                 Theme.bg.ignoresSafeArea()
                 VStack(spacing: 0) {
                     TopBar(model: model, pickerItem: $pickerItem, openFile: { showFileImporter = true })
-                    Rectangle().fill(Theme.hairline).frame(height: 1)
+                    DottedLine()
                     if wide {
                         HStack(spacing: 0) {
                             CanvasView(model: model, openFile: { showFileImporter = true })
@@ -83,12 +83,13 @@ private struct TopBar: View {
 
     var body: some View {
         HStack(spacing: 14) {
-            VStack(alignment: .leading, spacing: 1) {
-                Text("Anamorphic")
-                    .font(Theme.serif(19))
-                    .foregroundStyle(Theme.text)
+            VStack(alignment: .leading, spacing: 5) {
+                HStack(spacing: 10) {
+                    DotText(text: "ANAMORPHIC", dot: 2.6, color: Theme.text)
+                    LED(on: model.hasMedia, color: model.isExporting ? Theme.orange : Theme.green)
+                }
                 if model.hasMedia {
-                    Text(model.sourceName).font(Theme.mono(10)).foregroundStyle(Theme.faint).lineLimit(1)
+                    Text(model.sourceName).gateCaption(Theme.faint).lineLimit(1)
                 }
             }
             Spacer(minLength: 8)
@@ -99,12 +100,12 @@ private struct TopBar: View {
             .buttonStyle(GateButtonStyle(kind: .secondary))
 
             Button("Datei", action: openFile)
-                .buttonStyle(GateButtonStyle(kind: .secondary))
+                .buttonStyle(GateButtonStyle(kind: model.hasMedia ? .secondary : .primary))
                 .keyboardShortcut("o")
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .background(Theme.panel)
+        .padding(.vertical, 12)
+        .background(Theme.bg)
     }
 }
 
@@ -118,6 +119,7 @@ private struct CanvasView: View {
         VStack(spacing: 0) {
             ZStack {
                 Theme.bg
+                DotGrid()
                 if model.hasMedia {
                     preview
                 } else {
@@ -195,24 +197,27 @@ private struct EmptyGate: View {
     let openFile: () -> Void
 
     var body: some View {
-        VStack(spacing: 22) {
+        VStack(spacing: 26) {
             ZStack {
+                Rectangle().fill(Theme.panel.opacity(0.9))
                 Rectangle().stroke(Theme.hairline, lineWidth: 1)
-                ViewfinderMarks(length: 18, color: Theme.faint).padding(-6)
-                Text("2.39 : 1").font(Theme.mono(11)).foregroundStyle(Theme.faint)
+                ViewfinderMarks(length: 18).padding(-6)
+                DotText(text: "2.39:1", dot: 5, color: Theme.text, unlit: Color(red: 0.10, green: 0.10, blue: 0.11))
             }
             .aspectRatio(2.39, contentMode: .fit)
-            .frame(maxWidth: 360)
+            .frame(maxWidth: 380)
 
-            VStack(spacing: 6) {
+            VStack(spacing: 8) {
                 Text("Foto oder Video öffnen")
-                    .font(Theme.serif(22))
+                    .font(Theme.serif(20))
                     .foregroundStyle(Theme.text)
                 Text("Aus der Mediathek, als Datei oder per Drag & Drop.\nEine .cube-LUT kannst du ebenfalls hineinziehen.")
                     .font(.system(size: 12))
                     .multilineTextAlignment(.center)
                     .foregroundStyle(Theme.dim)
             }
+            Button("Datei öffnen", action: openFile)
+                .buttonStyle(GateButtonStyle(kind: .primary))
         }
         .padding(24)
     }
@@ -222,9 +227,9 @@ private struct ReadoutBar: View {
     @Bindable var model: AppModel
 
     var body: some View {
-        HStack(spacing: 16) {
+        HStack(spacing: 22) {
             if let out = model.outputSize {
-                cell("Format", String(format: "%.2f : 1", out.width / out.height))
+                cell("Format", String(format: "%.2f:1", out.width / out.height))
                 cell("Ausgabe", "\(Int(out.width))×\(Int(out.height))")
             }
             cell("Look", lookName)
@@ -234,8 +239,8 @@ private struct ReadoutBar: View {
                 .minimumScaleFactor(0.7)
         }
         .padding(.horizontal, 20)
-        .padding(.vertical, 9)
-        .background(Theme.panel)
+        .padding(.vertical, 10)
+        .background(Theme.bg)
     }
 
     private var lookName: String {
@@ -244,9 +249,9 @@ private struct ReadoutBar: View {
     }
 
     private func cell(_ title: String, _ value: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: 4) {
             Text(title).gateCaption(Theme.faint)
-            Text(value).readout(Theme.text, size: 11).lineLimit(1)
+            Text(value).readout(Theme.text, size: 12).lineLimit(1)
         }
     }
 }

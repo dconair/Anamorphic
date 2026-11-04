@@ -185,12 +185,13 @@ private struct LookRow: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 12) {
-                Rectangle().fill(selected ? Theme.accent : Color.clear).frame(width: 2)
+                LED(on: selected, size: 6)
                 HStack(spacing: 0) {
                     ForEach(swatches.indices, id: \.self) { Rectangle().fill(swatches[$0]) }
                 }
                 .frame(width: 64, height: 22)
-                .overlay(Rectangle().stroke(Theme.hairline, lineWidth: 1))
+                .clipShape(Capsule())
+                .overlay(Capsule().stroke(Theme.faint, lineWidth: 1))
                 VStack(alignment: .leading, spacing: 1) {
                     Text(title).font(.system(size: 13, weight: selected ? .semibold : .regular))
                         .foregroundStyle(selected ? Theme.text : Theme.dim)
@@ -219,7 +220,7 @@ private struct PresetRow: View {
         VStack(spacing: 0) {
             Button(action: action) {
                 HStack(spacing: 12) {
-                    Rectangle().fill(selected ? Theme.accent : Color.clear).frame(width: 2)
+                    LED(on: selected, size: 6)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(preset.title).font(Theme.serif(15))
                             .foregroundStyle(selected ? Theme.text : Theme.text.opacity(0.85))
@@ -249,7 +250,7 @@ private struct MatchBar: View {
     var body: some View {
         HStack(spacing: 2) {
             ForEach(0..<5, id: \.self) { i in
-                Rectangle()
+                Capsule()
                     .fill(Double(i) < value * 5 - 0.2
                           ? (highlighted ? Theme.accent : Theme.dim)
                           : Theme.hairline)
@@ -503,7 +504,7 @@ private struct TitlePanel: View {
                         let on = model.settings.subtitleFont == font
                         Button { model.settings.subtitleFont = font } label: {
                             HStack(spacing: 12) {
-                                Rectangle().fill(on ? Theme.accent : Color.clear).frame(width: 2, height: 22)
+                                LED(on: on, size: 6)
                                 Text(sample(font))
                                     .font(.custom(font.postScriptNames[0], size: 17))
                                     .foregroundStyle(on ? Theme.text : Theme.dim)

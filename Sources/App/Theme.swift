@@ -1,44 +1,48 @@
 import SwiftUI
 
-// Designsprache "Gate"
+// Designsprache "Dot"
 //
-// Orientiert sich an der Haptik von Kinoobjektiven und Cinema-Kameras, nicht an typischen Foto-Apps:
-//  • mattes, warmes Schwarz wie ein Filmgate – keine Verläufe, keine Schatten, keine Glas-Karten
-//  • Skalen mit Strichmarkierungen statt Standard-Slider (wie der Entfernungsring eines Objektivs)
-//  • ein einziger Akzent: Wolfram-Bernstein (Tungsten) – Kunstlicht-Gelb, wie ein Indexstrich am Ring
-//  • Werte in Monospace-Ziffern (Kamera-Readout), Beschriftungen als kleine, gesperrte Versalien
-//  • Titel in Serif (Filmabspann), alles andere in der System-Grotesk
-//  • kleine Radien (2 pt), Haarlinien statt Flächen
+// Technisches, spielerisches Gerätedesign im Sinne von Teenage Engineering und Nothing: reines Schwarz,
+// Punktmatrix-Schrift für Werte und Logo, Monospace-Versalien als Beschriftung, Kapsel-Schalter mit LED,
+// Segmentbalken statt Standard-Slider. Eine Signalfarbe (Rot) für Aktives, wenige Zweitfarben als Kodierung.
+// Nur Dark Mode.
 enum Theme {
-    static let bg = Color(red: 0.055, green: 0.055, blue: 0.049)        // #0E0E0D
-    static let panel = Color(red: 0.082, green: 0.082, blue: 0.074)     // #151513
-    static let raised = Color(red: 0.118, green: 0.114, blue: 0.102)    // #1E1D1A
-    static let hairline = Color(red: 0.200, green: 0.192, blue: 0.172)  // #333128
-    static let text = Color(red: 0.910, green: 0.894, blue: 0.851)      // #E8E4D9
-    static let dim = Color(red: 0.553, green: 0.533, blue: 0.482)       // #8D887B
-    static let faint = Color(red: 0.353, green: 0.341, blue: 0.306)     // #5A574E
-    static let accent = Color(red: 0.851, green: 0.643, blue: 0.255)    // #D9A441 Tungsten
-    static let warn = Color(red: 0.769, green: 0.333, blue: 0.231)      // #C4553B
+    static let bg = Color(red: 0, green: 0, blue: 0)                              // #000000
+    static let panel = Color(red: 0.039, green: 0.039, blue: 0.043)               // #0A0A0B
+    static let raised = Color(red: 0.086, green: 0.086, blue: 0.094)              // #161618
+    static let hairline = Color(red: 0.165, green: 0.165, blue: 0.176)            // #2A2A2D
+    static let text = Color(red: 0.949, green: 0.949, blue: 0.957)                // #F2F2F4
+    static let dim = Color(red: 0.549, green: 0.549, blue: 0.576)                 // #8C8C93
+    static let faint = Color(red: 0.294, green: 0.294, blue: 0.314)               // #4B4B50
+    static let accent = Color(red: 1.0, green: 0.231, blue: 0.180)                // #FF3B2E Signalrot
+    static let warn = accent
+
+    // Zweitfarben (sparsam, als Kodierung)
+    static let orange = Color(red: 1.0, green: 0.478, blue: 0.102)                // #FF7A1A
+    static let yellow = Color(red: 0.961, green: 0.824, blue: 0.0)                // #F5D200
+    static let green = Color(red: 0.239, green: 0.863, blue: 0.518)               // #3DDC84
+    static let blue = Color(red: 0.231, green: 0.510, blue: 1.0)                  // #3B82FF
 
     static func mono(_ size: CGFloat = 12, weight: Font.Weight = .regular) -> Font {
         .system(size: size, weight: weight, design: .monospaced)
     }
-    static func serif(_ size: CGFloat) -> Font { .system(size: size, weight: .regular, design: .serif) }
+    /// Titel: ruhige, mittelstarke Grotesk (Name aus Kompatibilitätsgründen unverändert)
+    static func serif(_ size: CGFloat) -> Font { .system(size: size, weight: .medium, design: .default) }
 
     #if os(iOS)
-    static let sliderInset: CGFloat = 15
+    static let sliderInset: CGFloat = 4
     #else
-    static let sliderInset: CGFloat = 9
+    static let sliderInset: CGFloat = 2
     #endif
 }
 
 // MARK: - Textstile
 
 extension View {
-    /// Kleine, gesperrte Versalien-Beschriftung
+    /// Kleine, gesperrte Mono-Versalien-Beschriftung
     func gateCaption(_ color: Color = Theme.dim) -> some View {
-        self.font(.system(size: 10, weight: .semibold))
-            .tracking(1.5)
+        self.font(.system(size: 10, weight: .medium, design: .monospaced))
+            .tracking(1.2)
             .textCase(.uppercase)
             .foregroundStyle(color)
     }
@@ -50,7 +54,186 @@ extension View {
     }
 }
 
+// MARK: - Punktmatrix-Schrift
+
+/// 5×7-Punktmatrix-Zeichen (A–Z, 0–9, einige Sonderzeichen). Zeile für Zeile, 1 = Punkt.
+enum DotFont {
+    static let glyphs: [Character: [String]] = [
+        "A": ["01110", "10001", "10001", "11111", "10001", "10001", "10001"],
+        "B": ["11110", "10001", "10001", "11110", "10001", "10001", "11110"],
+        "C": ["01110", "10001", "10000", "10000", "10000", "10001", "01110"],
+        "D": ["11110", "10001", "10001", "10001", "10001", "10001", "11110"],
+        "E": ["11111", "10000", "10000", "11110", "10000", "10000", "11111"],
+        "F": ["11111", "10000", "10000", "11110", "10000", "10000", "10000"],
+        "G": ["01110", "10001", "10000", "10111", "10001", "10001", "01111"],
+        "H": ["10001", "10001", "10001", "11111", "10001", "10001", "10001"],
+        "I": ["01110", "00100", "00100", "00100", "00100", "00100", "01110"],
+        "J": ["00111", "00010", "00010", "00010", "00010", "10010", "01100"],
+        "K": ["10001", "10010", "10100", "11000", "10100", "10010", "10001"],
+        "L": ["10000", "10000", "10000", "10000", "10000", "10000", "11111"],
+        "M": ["10001", "11011", "10101", "10101", "10001", "10001", "10001"],
+        "N": ["10001", "11001", "10101", "10011", "10001", "10001", "10001"],
+        "O": ["01110", "10001", "10001", "10001", "10001", "10001", "01110"],
+        "P": ["11110", "10001", "10001", "11110", "10000", "10000", "10000"],
+        "Q": ["01110", "10001", "10001", "10001", "10101", "10010", "01101"],
+        "R": ["11110", "10001", "10001", "11110", "10100", "10010", "10001"],
+        "S": ["01111", "10000", "10000", "01110", "00001", "00001", "11110"],
+        "T": ["11111", "00100", "00100", "00100", "00100", "00100", "00100"],
+        "U": ["10001", "10001", "10001", "10001", "10001", "10001", "01110"],
+        "V": ["10001", "10001", "10001", "10001", "10001", "01010", "00100"],
+        "W": ["10001", "10001", "10001", "10101", "10101", "11011", "10001"],
+        "X": ["10001", "10001", "01010", "00100", "01010", "10001", "10001"],
+        "Y": ["10001", "10001", "01010", "00100", "00100", "00100", "00100"],
+        "Z": ["11111", "00001", "00010", "00100", "01000", "10000", "11111"],
+        "0": ["01110", "10001", "10011", "10101", "11001", "10001", "01110"],
+        "1": ["00100", "01100", "00100", "00100", "00100", "00100", "01110"],
+        "2": ["01110", "10001", "00001", "00010", "00100", "01000", "11111"],
+        "3": ["11110", "00001", "00001", "01110", "00001", "00001", "11110"],
+        "4": ["00010", "00110", "01010", "10010", "11111", "00010", "00010"],
+        "5": ["11111", "10000", "11110", "00001", "00001", "10001", "01110"],
+        "6": ["00110", "01000", "10000", "11110", "10001", "10001", "01110"],
+        "7": ["11111", "00001", "00010", "00100", "01000", "01000", "01000"],
+        "8": ["01110", "10001", "10001", "01110", "10001", "10001", "01110"],
+        "9": ["01110", "10001", "10001", "01111", "00001", "00010", "01100"],
+        ".": ["00000", "00000", "00000", "00000", "00000", "01100", "01100"],
+        ":": ["00000", "01100", "01100", "00000", "01100", "01100", "00000"],
+        "-": ["00000", "00000", "00000", "11111", "00000", "00000", "00000"],
+        "+": ["00000", "00100", "00100", "11111", "00100", "00100", "00000"],
+        "%": ["11001", "11010", "00010", "00100", "01000", "01011", "10011"],
+    ]
+
+    /// Malzeichen (kleines ×)
+    static let times = ["00000", "10001", "01010", "00100", "01010", "10001", "00000"]
+
+    static func normalized(_ c: Character) -> Character {
+        let u = String(c).uppercased()
+        return u.count == 1 ? u.first! : c
+    }
+
+    /// Alle Zeichen vorhanden (Leerzeichen zählen als vorhanden)?
+    static func supports(_ text: String) -> Bool {
+        text.allSatisfy { c in
+            c == " " || c == "×" || glyphs[normalized(c)] != nil
+        }
+    }
+
+    static func rows(for c: Character) -> [String]? {
+        if c == "×" { return times }
+        return glyphs[normalized(c)]
+    }
+
+    /// Breite in Punkten (Raster-Einheiten) für den Text.
+    static func columns(of text: String) -> Int {
+        var n = 0
+        for c in text { n += (c == " " ? 3 : 6) }
+        return max(0, n - 1)
+    }
+}
+
+/// Zeichnet Text als Punktmatrix. `dot` ist der Punktdurchmesser, Raster = 1.35 × Durchmesser.
+struct DotText: View {
+    let text: String
+    var dot: CGFloat = 3
+    var color: Color = Theme.text
+    var unlit: Color? = nil          // Optional: nicht leuchtende Punkte schwach andeuten
+
+    private var pitch: CGFloat { dot * 1.38 }
+
+    var body: some View {
+        let cols = DotFont.columns(of: text)
+        Canvas { ctx, size in
+            var x: CGFloat = 0
+            for ch in text {
+                if ch == " " { x += 3 * pitch; continue }
+                guard let rows = DotFont.rows(for: ch) else { x += 6 * pitch; continue }
+                for (ry, row) in rows.enumerated() {
+                    for (cx, bit) in row.enumerated() {
+                        let rect = CGRect(x: x + CGFloat(cx) * pitch, y: CGFloat(ry) * pitch, width: dot, height: dot)
+                        if bit == "1" {
+                            ctx.fill(Path(ellipseIn: rect), with: .color(color))
+                        } else if let unlit {
+                            ctx.fill(Path(ellipseIn: rect), with: .color(unlit))
+                        }
+                    }
+                }
+                x += 6 * pitch
+            }
+        }
+        .frame(width: CGFloat(max(1, cols)) * pitch + dot, height: 7 * pitch)
+        .accessibilityElement()
+        .accessibilityLabel(text)
+    }
+}
+
+/// Wert als Punktmatrix, wenn alle Zeichen im Dot-Font vorhanden sind, sonst als Mono-Text.
+struct DotValue: View {
+    let text: String
+    var color: Color = Theme.text
+    var dot: CGFloat = 2.2
+
+    var body: some View {
+        if DotFont.supports(text) {
+            DotText(text: text, dot: dot, color: color)
+        } else {
+            Text(text).readout(color, size: 12)
+        }
+    }
+}
+
+/// Dezentes Punktraster als Hintergrund (wie das Raster eines Sequenzers).
+struct DotGrid: View {
+    var spacing: CGFloat = 16
+    var color: Color = Color(red: 0.11, green: 0.11, blue: 0.12)
+
+    var body: some View {
+        Canvas { ctx, size in
+            var y: CGFloat = spacing / 2
+            while y < size.height {
+                var x: CGFloat = spacing / 2
+                while x < size.width {
+                    ctx.fill(Path(ellipseIn: CGRect(x: x - 0.9, y: y - 0.9, width: 1.8, height: 1.8)), with: .color(color))
+                    x += spacing
+                }
+                y += spacing
+            }
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+/// Kleine LED (Punkt)
+struct LED: View {
+    var on: Bool
+    var color: Color = Theme.accent
+    var size: CGFloat = 7
+
+    var body: some View {
+        Circle()
+            .fill(on ? color : Color.clear)
+            .overlay(Circle().stroke(on ? color : Theme.faint, lineWidth: 1))
+            .frame(width: size, height: size)
+            .shadow(color: on ? color.opacity(0.6) : .clear, radius: 3)
+            .animation(.easeOut(duration: 0.15), value: on)
+    }
+}
+
 // MARK: - Abschnittskopf
+
+/// Gepunktete Trennlinie
+struct DottedLine: View {
+    var color: Color = Theme.faint
+    var body: some View {
+        Canvas { ctx, size in
+            var x: CGFloat = 0.5
+            while x < size.width {
+                ctx.fill(Path(ellipseIn: CGRect(x: x, y: size.height / 2 - 0.6, width: 1.2, height: 1.2)), with: .color(color))
+                x += 4.5
+            }
+        }
+        .frame(height: 2)
+        .allowsHitTesting(false)
+    }
+}
 
 struct SectionHeader: View {
     let title: String
@@ -58,21 +241,21 @@ struct SectionHeader: View {
 
     var body: some View {
         VStack(spacing: 8) {
-            HStack {
-                Text(title).gateCaption(Theme.accent)
+            HStack(spacing: 8) {
+                Circle().fill(Theme.accent).frame(width: 5, height: 5)
+                Text(title).gateCaption(Theme.text)
                 Spacer()
                 if let trailing { Text(trailing).gateCaption(Theme.faint) }
             }
-            Rectangle().fill(Theme.hairline).frame(height: 1)
+            DottedLine()
         }
     }
 }
 
-// MARK: - Skalen-Regler
+// MARK: - Segment-Regler
 
-/// Regler im Stil eines Objektivrings: Strichskala, Indexmarke, Mono-Anzeige.
-/// Die Bedienung übernimmt ein (fast) unsichtbarer System-Slider – das behält Scrollverhalten,
-/// Tastatur- und VoiceOver-Bedienung bei.
+/// Regler als Reihe kleiner Leuchtsegmente mit Punktmatrix-Anzeige. Die Bedienung übernimmt ein (fast)
+/// unsichtbarer System-Slider – das behält Scrollverhalten, Tastatur- und VoiceOver-Bedienung bei.
 struct ScaleSlider: View {
     let title: String
     @Binding var value: Double
@@ -89,47 +272,45 @@ struct ScaleSlider: View {
     }
 
     var body: some View {
-        VStack(spacing: 5) {
-            HStack(alignment: .firstTextBaseline) {
+        VStack(spacing: 7) {
+            HStack(alignment: .center) {
                 Text(title).gateCaption(active ? Theme.text : Theme.dim)
                 Spacer()
-                Text(format(value)).readout(active ? Theme.accent : Theme.text)
+                DotValue(text: format(value), color: active ? Theme.accent : Theme.text)
             }
             ZStack {
                 Canvas { ctx, size in
                     let inset = Theme.sliderInset
                     let usable = size.width - inset * 2
-                    let steps = 40
-                    let baseY = size.height - 2
-
-                    // Skalenstriche
-                    for i in 0...steps {
-                        let x = inset + usable * CGFloat(i) / CGFloat(steps)
-                        let major = i % 10 == 0
-                        let mid = i % 5 == 0
-                        let h: CGFloat = major ? 12 : (mid ? 8 : 4)
-                        var p = Path()
-                        p.move(to: CGPoint(x: x, y: baseY))
-                        p.addLine(to: CGPoint(x: x, y: baseY - h))
-                        ctx.stroke(p, with: .color(major ? Theme.dim : Theme.faint), lineWidth: 1)
+                    let segments = 36
+                    let gap: CGFloat = 2.5
+                    let w = (usable - gap * CGFloat(segments - 1)) / CGFloat(segments)
+                    let neutralIndex: Int? = neutral.map {
+                        let nf = (($0 - range.lowerBound) / (range.upperBound - range.lowerBound)).clamped(0, 1)
+                        return Int((nf * Double(segments - 1)).rounded())
                     }
+                    let lit = Int((fraction * Double(segments)).rounded())
 
-                    // Neutralmarke (z. B. 0 bei Korrekturreglern)
-                    if let neutral {
-                        let nf = (neutral - range.lowerBound) / (range.upperBound - range.lowerBound)
-                        let nx = inset + usable * CGFloat(nf)
-                        var p = Path()
-                        p.move(to: CGPoint(x: nx, y: baseY + 1))
-                        p.addLine(to: CGPoint(x: nx, y: baseY - 15))
-                        ctx.stroke(p, with: .color(Theme.text.opacity(0.55)), lineWidth: 1)
+                    for i in 0..<segments {
+                        let x = inset + CGFloat(i) * (w + gap)
+                        let isLit: Bool
+                        if let n = neutralIndex {
+                            // Bipolare Regler leuchten von der Neutralmarke aus
+                            let cur = Int((fraction * Double(segments - 1)).rounded())
+                            isLit = (i >= min(n, cur) && i <= max(n, cur)) && !(cur == n && i != n)
+                        } else {
+                            isLit = i < lit
+                        }
+                        let h: CGFloat = (i % 6 == 0) ? 16 : 12
+                        let rect = CGRect(x: x, y: size.height - h, width: w, height: h)
+                        let path = Path(roundedRect: rect, cornerRadius: 1.2)
+                        ctx.fill(path, with: .color(isLit ? (active ? Theme.accent : Theme.text) : Theme.hairline))
                     }
-
-                    // Indexmarke
-                    let ix = inset + usable * CGFloat(fraction)
-                    var idx = Path()
-                    idx.move(to: CGPoint(x: ix, y: baseY + 1))
-                    idx.addLine(to: CGPoint(x: ix, y: 1))
-                    ctx.stroke(idx, with: .color(Theme.accent), lineWidth: 2)
+                    // Neutralmarke
+                    if let n = neutralIndex {
+                        let x = inset + CGFloat(n) * (w + gap) + w / 2
+                        ctx.fill(Path(ellipseIn: CGRect(x: x - 1.5, y: 0, width: 3, height: 3)), with: .color(Theme.dim))
+                    }
                 }
                 .allowsHitTesting(false)
 
@@ -148,31 +329,36 @@ struct ScaleSlider: View {
 
 // MARK: - Auswahl-Leiste
 
-/// Textauswahl mit Indexstrich statt Segmented-Control.
+/// Kapsel-Segmente. Die aktive Auswahl ist weiß hinterlegt (wie eine gedrückte Taste).
 struct OptionStrip<T: Hashable & Identifiable>: View {
     let items: [T]
     @Binding var selection: T
     let title: (T) -> String
 
     var body: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: 2) {
             ForEach(items) { item in
                 let on = item == selection
-                Button { selection = item } label: {
-                    VStack(spacing: 6) {
-                        Text(title(item))
-                            .font(Theme.mono(11, weight: on ? .semibold : .regular))
-                            .foregroundStyle(on ? Theme.text : Theme.dim)
-                            .frame(maxWidth: .infinity)
-                        Rectangle().fill(on ? Theme.accent : Theme.hairline).frame(height: on ? 2 : 1)
-                    }
-                    .padding(.top, 6)
-                    .contentShape(Rectangle())
+                Button { withAnimation(.snappy(duration: 0.2)) { selection = item } } label: {
+                    Text(title(item))
+                        .font(Theme.mono(11, weight: on ? .semibold : .regular))
+                        .textCase(.uppercase)
+                        .foregroundStyle(on ? Theme.bg : Theme.dim)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 7)
+                        .frame(maxWidth: .infinity)
+                        .background(Capsule().fill(on ? Theme.text : Color.clear))
+                        .contentShape(Capsule())
                 }
                 .buttonStyle(.plain)
                 .accessibilityAddTraits(on ? .isSelected : [])
             }
         }
+        .padding(3)
+        .background(Capsule().fill(Theme.panel))
+        .overlay(Capsule().stroke(Theme.hairline, lineWidth: 1))
     }
 }
 
@@ -183,15 +369,16 @@ struct LampToggle: View {
     @Binding var isOn: Bool
 
     var body: some View {
-        Button { isOn.toggle() } label: {
-            HStack(spacing: 10) {
-                Rectangle()
-                    .fill(isOn ? Theme.accent : Color.clear)
-                    .overlay(Rectangle().stroke(isOn ? Theme.accent : Theme.faint, lineWidth: 1))
-                    .frame(width: 9, height: 9)
+        Button { withAnimation(.snappy(duration: 0.2)) { isOn.toggle() } } label: {
+            HStack(spacing: 12) {
                 Text(title).gateCaption(isOn ? Theme.text : Theme.dim)
                 Spacer()
-                Text(isOn ? "AN" : "AUS").font(Theme.mono(10)).foregroundStyle(isOn ? Theme.accent : Theme.faint)
+                ZStack(alignment: isOn ? .trailing : .leading) {
+                    Capsule().fill(isOn ? Theme.accent : Theme.raised)
+                    Capsule().stroke(isOn ? Theme.accent : Theme.faint, lineWidth: 1)
+                    Circle().fill(isOn ? Theme.bg : Theme.dim).frame(width: 14, height: 14).padding(3)
+                }
+                .frame(width: 40, height: 20)
             }
             .contentShape(Rectangle())
         }
@@ -210,15 +397,16 @@ struct GateButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 11, weight: .semibold))
-            .tracking(1.4)
+            .font(.system(size: 11, weight: .semibold, design: .monospaced))
+            .tracking(1.2)
             .textCase(.uppercase)
             .foregroundStyle(foreground)
-            .padding(.horizontal, 14)
+            .padding(.horizontal, 16)
             .padding(.vertical, 9)
-            .background(background(pressed: configuration.isPressed))
-            .overlay(RoundedRectangle(cornerRadius: 2).stroke(stroke, lineWidth: 1))
-            .clipShape(RoundedRectangle(cornerRadius: 2))
+            .background(Capsule().fill(background(pressed: configuration.isPressed)))
+            .overlay(Capsule().stroke(stroke, lineWidth: 1))
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
             .opacity(enabled ? 1 : 0.4)
     }
 
@@ -233,7 +421,7 @@ struct GateButtonStyle: ButtonStyle {
     private var stroke: Color {
         switch kind {
         case .primary: return Theme.accent
-        case .secondary: return Theme.hairline
+        case .secondary: return Theme.faint
         case .quiet: return Color.clear
         }
     }
@@ -252,7 +440,7 @@ struct GateButtonStyle: ButtonStyle {
 /// L-förmige Eckmarken wie Framelines im Kamerasucher.
 struct ViewfinderMarks: View {
     var length: CGFloat = 14
-    var color: Color = Theme.dim
+    var color: Color = Theme.accent
 
     var body: some View {
         Canvas { ctx, size in
@@ -261,7 +449,7 @@ struct ViewfinderMarks: View {
                 p.move(to: CGPoint(x: x + dx * length, y: y))
                 p.addLine(to: CGPoint(x: x, y: y))
                 p.addLine(to: CGPoint(x: x, y: y + dy * length))
-                ctx.stroke(p, with: .color(color), lineWidth: 1)
+                ctx.stroke(p, with: .color(color), lineWidth: 1.5)
             }
             corner(0.5, 0.5, 1, 1)
             corner(size.width - 0.5, 0.5, -1, 1)
