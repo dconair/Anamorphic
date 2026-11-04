@@ -185,7 +185,7 @@ enum SubtitleRenderer {
             ctx.setLineWidth(max(1, fontSize * 0.07))
             ctx.setStrokeColor(CGColor(red: 0.04, green: 0.04, blue: 0.04, alpha: 1))
             ctx.setFillColor(fill)
-            ctx.setTextDrawingMode(.fillStroke)
+            ctx.setTextDrawingMode(.fill)   // Kontur wird unten zuerst gezeichnet, damit sie die Füllung nicht überdeckt
 
         case .vintage:
             // Gelb, schräg, ohne Kontur; ein weicher dunkler Schatten hält die Zeile auf hellen Bildern lesbar
@@ -203,6 +203,12 @@ enum SubtitleRenderer {
 
         let path = CGPath(rect: textRect, transform: nil)
         let frame = CTFramesetterCreateFrame(setter, CFRange(location: 0, length: 0), path, nil)
+        if k.style == .classic {
+            // Erst die Kontur (hinter der Schrift), dann die Füllung darüber
+            ctx.setTextDrawingMode(.stroke)
+            CTFrameDraw(frame, ctx)
+            ctx.setTextDrawingMode(.fill)
+        }
         CTFrameDraw(frame, ctx)
 
         guard let cg = ctx.makeImage() else { return nil }
