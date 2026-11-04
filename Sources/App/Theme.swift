@@ -4,7 +4,7 @@ import SwiftUI
 //
 // Technisches, spielerisches Gerätedesign im Sinne von Teenage Engineering und Nothing: reines Schwarz,
 // Punktmatrix-Schrift für Werte und Logo, Monospace-Versalien als Beschriftung, Kapsel-Schalter mit LED,
-// Segmentbalken statt Standard-Slider. Eine Signalfarbe (Rot) für Aktives, wenige Zweitfarben als Kodierung.
+// Segmentbalken statt Standard-Slider. Eine gedämpfte Akzentfarbe für Aktives (wählbare Paletten oder selbst gemischt).
 // Nur Dark Mode.
 enum Theme {
     static let bg = Color(red: 0, green: 0, blue: 0)                              // #000000
@@ -14,14 +14,11 @@ enum Theme {
     static let text = Color(red: 0.949, green: 0.949, blue: 0.957)                // #F2F2F4
     static let dim = Color(red: 0.549, green: 0.549, blue: 0.576)                 // #8C8C93
     static let faint = Color(red: 0.294, green: 0.294, blue: 0.314)               // #4B4B50
-    static let accent = Color(red: 1.0, green: 0.231, blue: 0.180)                // #FF3B2E Signalrot
-    static let warn = accent
-
-    // Zweitfarben (sparsam, als Kodierung)
-    static let orange = Color(red: 1.0, green: 0.478, blue: 0.102)                // #FF7A1A
-    static let yellow = Color(red: 0.961, green: 0.824, blue: 0.0)                // #F5D200
-    static let green = Color(red: 0.239, green: 0.863, blue: 0.518)               // #3DDC84
-    static let blue = Color(red: 0.231, green: 0.510, blue: 1.0)                  // #3B82FF
+    /// Akzentfarbe: kommt aus der gewählten Palette (siehe ThemeStore), Standard ist ein gedämpftes, silbriges Rot.
+    static var accent: Color { ThemeStore.shared.accent }
+    /// Zweitfarbe der Palette (z. B. "bereit"-LED)
+    static var secondary: Color { ThemeStore.shared.secondary }
+    static var warn: Color { accent }
 
     static func mono(_ size: CGFloat = 12, weight: Font.Weight = .regular) -> Font {
         .system(size: size, weight: weight, design: .monospaced)
@@ -272,11 +269,13 @@ struct ScaleSlider: View {
     }
 
     var body: some View {
-        VStack(spacing: 7) {
+        // Vor dem Canvas lesen, damit eine Palettenänderung die Ansicht neu zeichnet
+        let accent = Theme.accent
+        return VStack(spacing: 7) {
             HStack(alignment: .center) {
                 Text(title).gateCaption(active ? Theme.text : Theme.dim)
                 Spacer()
-                DotValue(text: format(value), color: active ? Theme.accent : Theme.text)
+                DotValue(text: format(value), color: active ? accent : Theme.text)
             }
             ZStack {
                 Canvas { ctx, size in
@@ -304,7 +303,7 @@ struct ScaleSlider: View {
                         let h: CGFloat = (i % 6 == 0) ? 16 : 12
                         let rect = CGRect(x: x, y: size.height - h, width: w, height: h)
                         let path = Path(roundedRect: rect, cornerRadius: 1.2)
-                        ctx.fill(path, with: .color(isLit ? (active ? Theme.accent : Theme.text) : Theme.hairline))
+                        ctx.fill(path, with: .color(isLit ? (active ? accent : Theme.text) : Theme.hairline))
                     }
                     // Neutralmarke
                     if let n = neutralIndex {

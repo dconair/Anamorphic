@@ -9,7 +9,8 @@ struct RootView: View {
     @State private var showLUTImporter = false
 
     var body: some View {
-        GeometryReader { geo in
+        let accent = Theme.accent   // hier lesen: Palettenwechsel aktualisiert die ganze Oberfläche
+        return GeometryReader { geo in
             let wide = geo.size.width >= 820
             ZStack {
                 Theme.bg.ignoresSafeArea()
@@ -34,6 +35,7 @@ struct RootView: View {
                 }
             }
         }
+        .tint(accent)
         .onChange(of: model.settings) { model.scheduleRender() }
         .onChange(of: model.customLUT) { model.scheduleRender() }
         .onChange(of: model.videoTime) { model.videoTimeChanged() }
@@ -86,13 +88,15 @@ private struct TopBar: View {
             VStack(alignment: .leading, spacing: 5) {
                 HStack(spacing: 10) {
                     DotText(text: "ANAMORPHIC", dot: 2.6, color: Theme.text)
-                    LED(on: model.hasMedia, color: model.isExporting ? Theme.orange : Theme.green)
+                    LED(on: model.hasMedia, color: model.isExporting ? Theme.accent : Theme.secondary)
                 }
                 if model.hasMedia {
                     Text(model.sourceName).gateCaption(Theme.faint).lineLimit(1)
                 }
             }
             Spacer(minLength: 8)
+
+            PaletteButton()
 
             PhotosPicker(selection: $pickerItem, matching: .any(of: [.images, .videos])) {
                 Text("Mediathek")
