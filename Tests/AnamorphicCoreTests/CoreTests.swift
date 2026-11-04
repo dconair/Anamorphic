@@ -249,6 +249,44 @@ final class RendererSmokeTests: XCTestCase {
         try writeDetail("detail-natural", StylePreset.natural.settings)
     }
 
+    /// Echte Fotos (nur mit SAMPLE_DIR): lädt eine feste Auswahl verschiedener Motive, läuft durch denselben Weg wie
+    /// die App (Analyse → bestes Preset → angepasst → Render) und schreibt Original + Ergebnis + Analyse.
+    /// Ohne Netzwerk wird der Test übersprungen.
+    func testWriteRealPhotoSamples() throws {
+        guard let dir = ProcessInfo.processInfo.environment["SAMPLE_DIR"] else { return }
+        let out = URL(fileURLWithPath: dir).appendingPathComponent("real")
+        try FileManager.default.createDirectory(at: out, withIntermediateDirectories: true)
+        // (picsum-ID, Motiv)
+        let photos: [(Int, String)] = [
+            (64, "portrait-gegenlicht"), (65, "haare-sonnenuntergang"), (43, "nacht-bruecke-sw"), (84, "nacht-bruecke-farbe"),
+            (56, "nacht-bokeh"), (42, "innenraum-cafe"), (57, "strasse-architektur"), (10, "landschaft-kueste"),
+            (62, "sonnenaufgang-gegenlicht"), (78, "architektur-tuer"), (22, "strasse-person"), (45, "tuktuk-nah"),
+            (70, "nebel-baeume"), (88, "luftbild-verkehr"),
+        ]
+        let renderer = AnamorphicRenderer()
+        var report = ""
+        for (id, name) in photos {
+            guard let url = URL(string: "https://picsum.photos/id/\(id)/1600/1067"),
+                  let data = try? Data(contentsOf: url), let src = CIImage(data: data) else { continue }
+            let analysis = ImageAnalyzer.analyze(src, context: renderer.context)
+            let suggestions = ImageAnalyzer.suggestions(for: analysis)
+            guard let best = suggestions.first else { continue }
+            let settings = ImageAnalyzer.tuned(best.preset.settings, for: analysis)
+            let mask = SubjectMask.generate(for: src)
+            let result = renderer.process(src, settings: settings, lut: LookLibrary.lut(for: settings.lookID),
+                                          subjectMask: mask, frameSeed: 1)
+            let base = String(format: "%02d-%@", id, name)
+            try renderer.encode(src, format: .jpeg).write(to: out.appendingPathComponent("\(base)-a-original.jpg"))
+            try renderer.encode(result, format: .jpeg).write(to: out.appendingPathComponent("\(base)-b-ergebnis.jpg"))
+            report += String(format: "%@: preset=%@ (%.2f %@) luma=%.2f contrast=%.2f warm=%.2f sat=%.2f lights=%d faces=%d edge=%.3f mask=%@ flare=%@ exp=%.2f\n",
+                             base, best.preset.rawValue, best.score, best.reason, analysis.meanLuma, analysis.contrast,
+                             analysis.warmth, analysis.saturation, analysis.lightSourceCount, analysis.faceCount,
+                             analysis.edgeDensity, mask == nil ? "nein" : "ja", settings.flareEnabled ? "an" : "aus",
+                             settings.effectiveExpansion)
+        }
+        try report.write(to: out.appendingPathComponent("analyse.txt"), atomically: true, encoding: .utf8)
+    }
+
     func testFlareBrightensAroundLights() {
         let renderer = AnamorphicRenderer()
         var off = StylePreset.clean.settings
