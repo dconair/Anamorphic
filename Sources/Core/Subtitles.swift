@@ -39,7 +39,7 @@ enum SubtitleStyle: String, Codable, CaseIterable, Identifiable, Sendable {
     var defaultFont: SubtitleFont {
         switch self {
         case .cinema: return .sans
-        case .classic: return .serif
+        case .classic: return .sans
         case .brat: return .narrow
         }
     }
