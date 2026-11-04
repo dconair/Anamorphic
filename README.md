@@ -66,8 +66,9 @@ Die Pipeline (`Sources/Core/Renderer.swift`):
 3. **Laterale Farbsäume** – R/B-Kanäle leicht gegeneinander skaliert, null in der Mitte, stärker zum Rand.
 4. **Streak-Flares + Halation** – nur kleine, sehr helle Lichtquellen des *Originalbildes* streuen (Top-Hat-Filter schließt
    weiße Wände aus). Horizontale Streaks in wählbarer Farbe, dazu ein warmer ovaler Hof.
-5. **Streifenweise Streckung** (`Stretch.swift`) – die Breite wird um die „Breitenstreckung“ gedehnt, der Rand stärker als
-   die Mitte (Randdehnung, wie beim echten Anamorphoten). Die mittlere Streckung bleibt exakt der eingestellte Wert.
+5. **Streifenweise Streckung** (`Stretch.swift`) – Standard: Mitte unverändert (Breitenstreckung 1.00×), nur der äußerste
+   Rand wird um wenige Prozent breiter (Randdehnung, wie bei echten Anamorphoten). Ein richtig entzerrtes Anamorphot-Bild
+   hat natürliche Proportionen; Strecken eines normalen Fotos würde nur breit wirken lassen.
 6. **Zuschnitt** auf 2.39 / 2.35 / 2.00 / 1.85, gerade Pixelmaße (Video-Encoder).
 7. **Farbe** – Belichtung → Weißabgleich → Lichter/Tiefen → **LUT** (Stärke regelbar) → Kontrast/Sättigung.
 8. **Ovale Vignette, Korn** (Korn horizontal gestreckt wie das Bild, relativ zur Bildbreite, pro Videoframe neu).
@@ -90,7 +91,7 @@ Alle Pixelgrößen sind relativ zur Bildbreite, Vorschau und Export sehen deshal
   Flares, aber **kein** ovales Bokeh. Ovales Bokeh gehört zu echten Cinema-Anamorphoten (1.6×–2×). Die App
   simuliert beides getrennt: *Linsen-Squeeze* 1.0 = rundes Bokeh.
 - Aus einem normalen 16:9-Clip lässt sich kein echtes zusätzliches Sichtfeld herstellen. Die App dehnt das Bild
-  deshalb nur mäßig (Standard 1.2×, Rand stärker) und schneidet auf 2.39 zu; ein Rest ist immer Zuschnitt.
+  deshalb im Standard gar nicht, nur der Rand etwas, und schneidet auf 2.39 zu. Details: `docs/ANAMORPHIC-PHYSIK.md`.
 
 ## Feintuning
 

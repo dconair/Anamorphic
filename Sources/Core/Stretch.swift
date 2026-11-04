@@ -1,15 +1,18 @@
 import Foundation
 import CoreGraphics
 
-/// Horizontale Streckung mit Randbetonung ("Mumps-Effekt" echter Anamorphoten).
+/// Horizontale Streckung mit leichter Randbetonung ("Mumps"-Effekt echter Anamorphoten).
 ///
-/// Ein Anamorphot bildet die Mitte annähernd unverzerrt ab, der Rand wird dagegen stärker in die
-/// Breite gezogen. Das Bild wird in `strips` senkrechte Streifen zerlegt; jeder Streifen bekommt
-/// einen eigenen Faktor s(u) = c + (e − c)·u² (u = −1 … 1 von links nach rechts). c und e werden so
-/// gewählt, dass die mittlere Streckung genau `desqueeze` ergibt. Alle Streifengrenzen sind ganze
-/// Pixel, damit keine Nähte entstehen.
-enum Stretch {
+/// Ein korrekt entzerrtes Anamorphot-Bild hat in der Mitte natürliche Proportionen; nur zum Rand hin wird die
+/// Abbildung bei vielen Objektiven etwas breiter gezogen (der Squeeze ist über das Bildfeld nicht ganz konstant).
+/// Das Bild wird in `strips` senkrechte Streifen zerlegt; jeder bekommt den Faktor
+/// s(u) = d · (1 + k · u²), u = −1 … 1 von links nach rechts, d = Mittelstreckung ("Breitenstreckung"),
+/// k = `maxEdgeGain` · Randdehnung. In der Mitte gilt also genau d. Alle Streifengrenzen sind ganze Pixel,
+/// damit keine Nähte entstehen.
     static let strips = 40
+    /// Zusätzliche Streckung ganz am Rand bei Randdehnung = 1 (0.16 → +16 %). Echte Objektive liegen eher bei
+    /// wenigen Prozent; der Standardwert (0.5) ergibt +8 % am äußersten Rand.
+    static let maxEdgeGain = 0.16
 
     static func isIdentity(desqueeze: Double, edge: Double) -> Bool {
         desqueeze <= 1.0001 && edge <= 0.001
@@ -18,9 +21,7 @@ enum Stretch {
     /// Faktor in der Bildmitte und am Rand.
     static func factors(desqueeze d: Double, edge: Double) -> (center: Double, edge: Double) {
         let dd = max(1.0, d)
-        let e = dd * (1 + 0.6 * edge.clamped(0, 1))
-        let c = (3 * dd - e) / 2
-        return (c, e)
+        return (dd, dd * (1 + maxEdgeGain * edge.clamped(0, 1)))
     }
 
     /// Quell- und Zielgrenzen der Streifen (jeweils `strips + 1` ganze Zahlen).

@@ -92,8 +92,8 @@ struct AnamorphicSettings: Codable, Equatable, Sendable {
     // Bildformat
     var aspect: AspectTarget = .scope239
     var verticalOffset: Double = 0          // -1 ... 1  (positiv = Ausschnitt nach oben)
-    var desqueeze: Double = 1.33            // 1.0 ... 1.8  mittlere Breitenstreckung des fertigen Bildes
-    var edgeStretch = 0.6                   // 0 ... 1      wie viel stärker der Rand gestreckt wird als die Mitte
+    var desqueeze: Double = 1.0             // 1.0 ... 1.8  mittlere Breitenstreckung des fertigen Bildes
+    var edgeStretch = 0.5                   // 0 ... 1      wie viel stärker der Rand gestreckt wird als die Mitte
     var squeeze = 1.5                       // 1.0 ... 2.0  Anamorphot-Faktor: Bokeh, Korn, Glimmer werden so oval
 
     // Bokeh
@@ -228,7 +228,7 @@ enum StylePreset: String, CaseIterable, Identifiable {
         case .tungsten: return "Warmes Kunstlicht-Negativ, Bernstein-Flares"
         case .goldenHour: return "Weiches Gegenlicht, warme Lichter"
         case .softFilm: return "Flach und weich, entsättigt, ruhige Szenen"
-        case .clean: return "Squeeze/Desqueeze-Geometrie, keine Effekte"
+        case .clean: return "Scope-Zuschnitt mit leichter Randdehnung, keine Effekte"
         }
     }
 

@@ -91,19 +91,25 @@ final class GeometryTests: XCTestCase {
         XCTAssertEqual(g.crop.width / g.crop.height, 16.0 / 9.0, accuracy: 0.01)
     }
 
-    func testDefaultStretchWidensImageAndKeepsHeight() {
+    func testDefaultKeepsProportionsAlmostUntouched() {
         let s = AnamorphicSettings()
         let g = s.geometry(for: CGSize(width: 4000, height: 3000))
-        XCTAssertGreaterThan(g.stretchedSize.width, 4000 * 1.15)
+        // Standard: Mitte unverändert, nur der Rand etwas breiter (insgesamt < +6 %)
+        XCTAssertGreaterThanOrEqual(g.stretchedSize.width, 4000)
+        XCTAssertLessThan(g.stretchedSize.width, 4000 * 1.06)
         XCTAssertEqual(g.stretchedSize.height, 3000)
         XCTAssertEqual(g.crop.width / g.crop.height, 2.39, accuracy: 0.02)
     }
 
-    func testStretchAverageEqualsDesqueeze() {
-        for (d, e) in [(1.2, 0.35), (1.33, 0.0), (1.5, 1.0)] {
+    func testStretchCenterEqualsDesqueezeAndEdgeIsLarger() {
+        for (d, e) in [(1.0, 0.5), (1.33, 0.0), (1.5, 1.0)] {
+            let f = Stretch.factors(desqueeze: d, edge: e)
+            XCTAssertEqual(f.center, d, accuracy: 1e-9)
+            XCTAssertEqual(f.edge, d * (1 + Stretch.maxEdgeGain * e), accuracy: 1e-9)
             let w = 4000
-            let out = Stretch.outputWidth(width: w, desqueeze: d, edge: e)
-            XCTAssertEqual(Double(out) / Double(w), d, accuracy: 0.01, "d=\(d) e=\(e)")
+            let out = Double(Stretch.outputWidth(width: w, desqueeze: d, edge: e)) / Double(w)
+            XCTAssertGreaterThanOrEqual(out, d - 0.01)
+            XCTAssertLessThanOrEqual(out, f.edge + 0.01)
         }
     }
 
@@ -279,8 +285,8 @@ final class AnalysisTests: XCTestCase {
         base.desqueeze = 1.5
         base.edgeStretch = 0
         let s = ImageAnalyzer.tuned(base, for: a)
-        XCTAssertLessThanOrEqual(s.desqueeze, 1.25)
-        XCTAssertGreaterThanOrEqual(s.edgeStretch, 0.6)
+        XCTAssertLessThanOrEqual(s.desqueeze, 1.1)
+        XCTAssertLessThanOrEqual(s.edgeStretch, 0.4)
     }
 
     func testSubtitleTimingFadesAndHides() {

@@ -145,8 +145,8 @@ enum ImageAnalyzer {
         var s = base
         if !a.hasLightSources { s.flareEnabled = false }
         if a.faceCount > 0 {
-            s.desqueeze = min(s.desqueeze, 1.25)
-            s.edgeStretch = max(s.edgeStretch, 0.6)
+            s.desqueeze = min(s.desqueeze, 1.1)
+            s.edgeStretch = min(s.edgeStretch, 0.4)
         }
         if a.isSoft { s.bokehAmount *= 0.4 }
         if a.meanLuma < 0.22 { s.exposure += 0.3 }

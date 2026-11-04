@@ -340,7 +340,7 @@ private struct LensPanel: View {
             Param(model: model, title: "Breitenstreckung", keyPath: \.desqueeze, range: 1...1.8, format: Fmt.factor)
             Param(model: model, title: "Randdehnung", keyPath: \.edgeStretch, range: 0...1)
             Param(model: model, title: "Randunschärfe", keyPath: \.edgeSoftness, range: 0...1)
-            Hint("Wie bei einer echten Anamorphot-Aufnahme: Unschärfe, Flares und Korn entstehen im gequetschten Bild und werden danach mit dem Faktor der Breitenstreckung wieder auseinandergezogen. Daher sind Bokeh-Scheiben oval. Der Linsen-Squeeze bestimmt die Ovalität (1.5× ≈ 1.5:1). Randdehnung streckt die Bildränder stärker als die Mitte (leichter Weitwinkel-„Mumps“-Effekt), Randunschärfe macht die Ränder weicher. Für Material, das schon anamorph gefilmt wurde, Streckung auf den Adapter-Faktor stellen (z. B. 1.33×).")
+            Hint("Ein richtig entzerrtes Anamorphot-Bild hat natürliche Proportionen: Menschen und Objekte sehen nicht breiter aus. Das Besondere ist der breitere Blickwinkel, die ovalen Unschärfescheiben, horizontale Flares und leichte Randeffekte. Deshalb streckt die App im Standard nichts (Breitenstreckung 1.00×) und simuliert die Optik: Der Linsen-Squeeze bestimmt die Ovalität (1.5× ≈ 1.5:1), Randdehnung zieht nur den äußersten Rand etwas breiter, Randunschärfe macht ihn weicher. Breitenstreckung nur erhöhen, wenn das Material wirklich mit Anamorphot gedreht wurde (z. B. 1.33× Vorsatz) oder du den gestreckten Look bewusst willst.")
         }
 
         Group_(title: "Bokeh") {
