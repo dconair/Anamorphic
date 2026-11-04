@@ -147,6 +147,7 @@ enum ImageAnalyzer {
         if a.faceCount > 0 {
             s.desqueeze = min(s.desqueeze, 1.1)
             s.edgeStretch = min(s.edgeStretch, 0.4)
+            s.expansion = min(s.expansion, 1.15)
         }
         if a.isSoft { s.bokehAmount *= 0.4 }
         if a.meanLuma < 0.22 { s.exposure += 0.3 }
@@ -165,6 +166,7 @@ extension AnamorphicSettings {
         r.verticalOffset = m(a.verticalOffset, b.verticalOffset)
         r.desqueeze = m(a.desqueeze, b.desqueeze)
         r.edgeStretch = m(a.edgeStretch, b.edgeStretch)
+        r.expansion = m(a.expansion, b.expansion)
         r.squeeze = m(a.squeeze, b.squeeze)
         r.bokehAmount = m(a.bokehAmount, b.bokehAmount)
         r.highlightBoost = m(a.highlightBoost, b.highlightBoost)

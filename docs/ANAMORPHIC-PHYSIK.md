@@ -48,6 +48,18 @@ nachbaut, sind die **Spuren** der Optik:
 Regler dazu im Reiter **Linse → Anamorphot**: *Linsen-Squeeze* (Ovalität), *Breitenstreckung*, *Randdehnung*,
 *Randunschärfe*.
 
+## Bildwinkel-Erweiterung (Schalter „Bildwinkel erweitern“)
+
+Ein Anamorphot zeigt links und rechts mehr Szene. Ohne generative KI lässt sich dieser Inhalt nicht erfinden. Die App
+nutzt stattdessen eine **nichtlineare Streckung** (`Stretch.swift`): Die mittleren 40 % des Bildes bleiben exakt wie das
+Original, die Randzonen werden quadratisch ansteigend weiter gedehnt, bis das Bild insgesamt um den Faktor *Erweiterung*
+(Standard 1.20×) breiter ist. Das Verfahren ähnelt der Randdehnung rechteckiger Weitwinkelobjektive und der Panini-Projektion.
+Es erfindet keine Bildteile, nur die Ränder werden gedehnt und dadurch weicher, was zusätzlich zur ovalen Vignette,
+zur Randunschärfe und zu den Farbsäumen passt. Der 2.39:1-Zuschnitt schneidet danach weniger weg.
+
+Grenzen: Gesichter und gerade Linien am äußersten Rand werden sichtbar breiter (am Rand bis ca. 2×). Deshalb ist der Standard
+mäßig, und bei erkannten Gesichtern begrenzt die Bildanalyse die Erweiterung auf 1.15×.
+
 ## Wann die Breitenstreckung trotzdem sinnvoll ist
 
 - Das Material wurde **wirklich** mit Anamorphot gedreht und liegt noch gestaucht vor (z. B. 1.33× Vorsatz):

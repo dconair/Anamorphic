@@ -56,6 +56,7 @@ final class GeometryTests: XCTestCase {
         var s = AnamorphicSettings()   // 2.39
         s.desqueeze = 1.0
         s.edgeStretch = 0
+        s.expandEnabled = false
         let g = s.geometry(for: CGSize(width: 3840, height: 2160))
         XCTAssertEqual(g.crop.width, 3840)
         XCTAssertEqual(g.crop.height, 1606)
@@ -68,6 +69,7 @@ final class GeometryTests: XCTestCase {
         var s = AnamorphicSettings()
         s.desqueeze = 1.0
         s.edgeStretch = 0
+        s.expandEnabled = false
         let g = s.geometry(for: CGSize(width: 1080, height: 1920))
         XCTAssertEqual(g.crop.width, 1080)
         XCTAssertLessThan(g.crop.height, 1920)
@@ -78,6 +80,7 @@ final class GeometryTests: XCTestCase {
         s.aspect = .original
         s.desqueeze = 1.0
         s.edgeStretch = 0
+        s.expandEnabled = false
         let g = s.geometry(for: CGSize(width: 4032, height: 3024))
         XCTAssertEqual(g.crop.size, CGSize(width: 4032, height: 3024))
     }
@@ -86,13 +89,15 @@ final class GeometryTests: XCTestCase {
         var s = AnamorphicSettings()
         s.desqueeze = 1.33
         s.edgeStretch = 0
+        s.expandEnabled = false
         s.aspect = .original
         let g = s.geometry(for: CGSize(width: 3000, height: 2250))   // 4:3 → ~16:9
         XCTAssertEqual(g.crop.width / g.crop.height, 16.0 / 9.0, accuracy: 0.01)
     }
 
     func testDefaultKeepsProportionsAlmostUntouched() {
-        let s = AnamorphicSettings()
+        var s = AnamorphicSettings()
+        s.expandEnabled = false
         let g = s.geometry(for: CGSize(width: 4000, height: 3000))
         // Standard: Mitte unverändert, nur der Rand etwas breiter (insgesamt < +6 %)
         XCTAssertGreaterThanOrEqual(g.stretchedSize.width, 4000)
@@ -111,6 +116,25 @@ final class GeometryTests: XCTestCase {
             XCTAssertGreaterThanOrEqual(out, d - 0.01)
             XCTAssertLessThanOrEqual(out, f.edge + 0.01)
         }
+    }
+
+    func testExpansionWidensImageButKeepsCenter() {
+        let w = 4000
+        let out = Double(Stretch.outputWidth(width: w, desqueeze: 1, edge: 0, expansion: 1.2)) / Double(w)
+        XCTAssertEqual(out, 1.2, accuracy: 0.01)
+        let b = Stretch.boundaries(width: w, desqueeze: 1, edge: 0, expansion: 1.2)
+        let n = Stretch.strips
+        let mid = Double(b.dst[n / 2 + 1] - b.dst[n / 2]) / Double(b.src[n / 2 + 1] - b.src[n / 2])
+        let edge = Double(b.dst[1] - b.dst[0]) / Double(b.src[1] - b.src[0])
+        XCTAssertEqual(mid, 1.0, accuracy: 0.001)       // Mitte unverändert
+        XCTAssertGreaterThan(edge, 1.5)                 // Rand deutlich gedehnt
+        XCTAssertLessThan(edge, 2.6)
+    }
+
+    func testExpansionOnByDefault() {
+        let s = AnamorphicSettings()
+        let g = s.geometry(for: CGSize(width: 4000, height: 3000))
+        XCTAssertEqual(g.stretchedSize.width / 4000, 1.2, accuracy: 0.04)
     }
 
     func testStretchEdgesStretchMoreThanCenter() {
@@ -195,7 +219,7 @@ final class RendererSmokeTests: XCTestCase {
             try data.write(to: URL(fileURLWithPath: dir).appendingPathComponent("\(name).png"))
         }
         var flat = AnamorphicSettings(); flat.aspect = .original
-        flat.lookID = "none"; flat.desqueeze = 1; flat.edgeStretch = 0
+        flat.lookID = "none"; flat.desqueeze = 1; flat.edgeStretch = 0; flat.expandEnabled = false
         flat.bokehEnabled = false; flat.flareEnabled = false; flat.halation = 0
         flat.aberration = 0; flat.edgeSoftness = 0; flat.grain = 0; flat.vignette = 0
         try write("00-original", flat)
@@ -231,6 +255,7 @@ final class RendererSmokeTests: XCTestCase {
         off.aspect = .original
         off.desqueeze = 1
         off.edgeStretch = 0
+        off.expandEnabled = false
         var on = off
         on.flareEnabled = true
         on.flareIntensity = 1

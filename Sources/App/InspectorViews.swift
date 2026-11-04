@@ -335,6 +335,14 @@ private struct LensPanel: View {
                   neutral: 0, format: Fmt.signedPercent)
         }
 
+        Group_(title: "Bildwinkel") {
+            LampToggle(title: "Bildwinkel erweitern", isOn: $model.settings.expandEnabled)
+            if model.settings.expandEnabled {
+                Param(model: model, title: "Erweiterung", keyPath: \.expansion, range: 1...1.5, format: Fmt.factor)
+            }
+            Hint("Ein echter Anamorphot zeigt links und rechts mehr Szene. Das lässt sich aus einem Foto nicht herstellen, aber nachahmen: Die Bildmitte bleibt unverändert, nur die äußeren Bildzonen werden weiter gedehnt, wie bei einem Weitwinkel-Objektiv. Dazu kommen weichere Ränder, ovale Unschärfe und Farbsäume. So bleibt das Bild proportional natürlich und wirkt trotzdem weiter. Standard 1.20×; über etwa 1.35× werden Gesichter am Rand sichtbar breit.")
+        }
+
         Group_(title: "Anamorphot") {
             Param(model: model, title: "Linsen-Squeeze", keyPath: \.squeeze, range: 1...2, format: Fmt.factor)
             Param(model: model, title: "Breitenstreckung", keyPath: \.desqueeze, range: 1...1.8, format: Fmt.factor)

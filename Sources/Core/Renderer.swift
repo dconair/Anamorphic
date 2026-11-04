@@ -402,11 +402,11 @@ final class AnamorphicRenderer: @unchecked Sendable {
     /// Streckt das Bild in der Breite, in der Mitte weniger als am Rand (siehe `Stretch`).
     /// Jeder Streifen wird einzeln skaliert und auf ganzzahlige Pixelgrenzen gesetzt – ohne Nähte.
     private func stretch(_ img: CIImage, _ s: AnamorphicSettings) -> CIImage {
-        if Stretch.isIdentity(desqueeze: s.desqueeze, edge: s.edgeStretch) { return img }
+        if Stretch.isIdentity(desqueeze: s.desqueeze, edge: s.edgeStretch, expansion: s.effectiveExpansion) { return img }
         let ext = img.extent
         let width = Int(ext.width.rounded())
         let height = ext.height
-        let b = Stretch.boundaries(width: width, desqueeze: s.desqueeze, edge: s.edgeStretch)
+        let b = Stretch.boundaries(width: width, desqueeze: s.desqueeze, edge: s.edgeStretch, expansion: s.effectiveExpansion)
         let base = img.clampedToExtent()
         let margin = 3                       // Rand für den Lanczos-Filter, damit an den Streifennähten nichts fehlt
 

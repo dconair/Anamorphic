@@ -93,6 +93,8 @@ struct AnamorphicSettings: Codable, Equatable, Sendable {
     var aspect: AspectTarget = .scope239
     var verticalOffset: Double = 0          // -1 ... 1  (positiv = Ausschnitt nach oben)
     var desqueeze: Double = 1.0             // 1.0 ... 1.8  mittlere Breitenstreckung des fertigen Bildes
+    var expandEnabled = true                // Bildwinkel erweitern: Randzonen werden weiter gedehnt, die Mitte bleibt
+    var expansion = 1.2                     // 1.0 ... 1.5  Faktor, um den das Bild insgesamt breiter wird (Bildwinkel)
     var edgeStretch = 0.5                   // 0 ... 1      wie viel stärker der Rand gestreckt wird als die Mitte
     var squeeze = 1.5                       // 1.0 ... 2.0  Anamorphot-Faktor: Bokeh, Korn, Glimmer werden so oval
 
@@ -147,6 +149,9 @@ struct AnamorphicSettings: Codable, Equatable, Sendable {
 }
 
 extension AnamorphicSettings {
+    /// Erweiterungsfaktor, der tatsächlich angewendet wird.
+    var effectiveExpansion: Double { expandEnabled ? expansion.clamped(1, 1.6) : 1 }
+
     /// Deckkraft des Untertitels zum Zeitpunkt `t` (Sekunden). `nil` = Foto: immer sichtbar.
     /// Kurze Ein-/Ausblendung (0,15 s), wie bei Streaming-Untertiteln.
     func subtitleOpacity(at t: Double?) -> Double {
@@ -173,7 +178,7 @@ struct FrameGeometry: Equatable {
 
 extension AnamorphicSettings {
     func geometry(for input: CGSize) -> FrameGeometry {
-        let stretchedW = Double(Stretch.outputWidth(width: Int(input.width.rounded()), desqueeze: desqueeze, edge: edgeStretch))
+        let stretchedW = Double(Stretch.outputWidth(width: Int(input.width.rounded()), desqueeze: desqueeze, edge: edgeStretch, expansion: effectiveExpansion))
         let stretchedH = input.height
         let stretched = CGSize(width: stretchedW, height: stretchedH)
 
