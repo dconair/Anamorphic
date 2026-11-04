@@ -470,6 +470,9 @@ private struct TitlePanel: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Stil").gateCaption()
                     OptionStrip(items: SubtitleStyle.allCases, selection: styleBinding) { $0.title }
+                    if model.settings.subtitleStyle == .vintage {
+                        Hint("Der gelbe Vintage-Untertitel aus Social-Media-Edits: Helvetica Medium Italic, warmes Gelb (#F8E36A), weicher Schatten. Farbe frei änderbar.")
+                    }
                     if model.settings.subtitleStyle == .brat {
                         Hint("Nur Schrift ohne Hintergrund: klein geschrieben, schmale Grotesk, leicht verwaschen, standardmäßig Orange. Ein Stilwechsel setzt Schrift und Farbe des Stils.")
                     }

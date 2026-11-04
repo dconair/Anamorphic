@@ -11,6 +11,8 @@ enum SubtitleStyle: String, Codable, CaseIterable, Identifiable, Sendable {
     case cinema
     /// Gelb mit dunkler Kontur – klassischer Kino-/DVD-Untertitel
     case classic
+    /// "Vintage-Untertitel": gelbe, schräg gestellte Helvetica mit weichem Schatten (der Social-Media-Klassiker)
+    case vintage
     /// Nur Schrift, ohne Hintergrund: kleingeschrieben, schmale Grotesk, leicht verwaschen, standardmäßig Orange
     case brat
 
@@ -19,6 +21,7 @@ enum SubtitleStyle: String, Codable, CaseIterable, Identifiable, Sendable {
         switch self {
         case .cinema: return "Kino"
         case .classic: return "Klassisch"
+        case .vintage: return "Vintage"
         case .brat: return "Brat"
         }
     }
@@ -28,6 +31,7 @@ enum SubtitleStyle: String, Codable, CaseIterable, Identifiable, Sendable {
         switch self {
         case .cinema: return [0.98, 0.98, 0.96]
         case .classic: return [1.0, 0.86, 0.22]
+        case .vintage: return [0.973, 0.890, 0.416]   // #F8E36A
         case .brat: return [1.0, 0.45, 0.05]
         }
     }
@@ -39,14 +43,15 @@ enum SubtitleStyle: String, Codable, CaseIterable, Identifiable, Sendable {
     var defaultFont: SubtitleFont {
         switch self {
         case .cinema: return .sans
-        case .classic: return .sans
+        case .classic: return .serif
+        case .vintage: return .italic
         case .brat: return .narrow
         }
     }
 }
 
 enum SubtitleFont: String, Codable, CaseIterable, Identifiable, Sendable {
-    case sans, serif, condensed, typewriter, didot, narrow
+    case sans, serif, condensed, typewriter, didot, narrow, italic
 
     var id: String { rawValue }
 
@@ -58,6 +63,7 @@ enum SubtitleFont: String, Codable, CaseIterable, Identifiable, Sendable {
         case .typewriter: return "Courier"
         case .didot: return "Didot"
         case .narrow: return "Arial Narrow"
+        case .italic: return "Helvetica Italic"
         }
     }
 
@@ -71,6 +77,7 @@ enum SubtitleFont: String, Codable, CaseIterable, Identifiable, Sendable {
         case .typewriter: return ["CourierNewPS-BoldMT", "Courier-Bold"]
         case .didot: return ["Didot", "Didot-Bold"]
         case .narrow: return ["ArialNarrow", "ArialNarrow-Bold", "ArialMT", "Helvetica"]
+        case .italic: return ["HelveticaNeue-MediumItalic", "Helvetica-Oblique", "Helvetica"]
         }
     }
 
@@ -179,6 +186,13 @@ enum SubtitleRenderer {
             ctx.setStrokeColor(CGColor(red: 0.04, green: 0.04, blue: 0.04, alpha: 1))
             ctx.setFillColor(fill)
             ctx.setTextDrawingMode(.fillStroke)
+
+        case .vintage:
+            // Gelb, schräg, ohne Kontur; ein weicher dunkler Schatten hält die Zeile auf hellen Bildern lesbar
+            ctx.setShadow(offset: CGSize(width: 0, height: -fontSize * 0.06), blur: fontSize * 0.28,
+                          color: CGColor(red: 0, green: 0, blue: 0, alpha: 0.85))
+            ctx.setFillColor(fill)
+            ctx.setTextDrawingMode(.fill)
 
         case .brat:
             // Nur Schrift, kein Kasten. Ein sehr weicher, dunkler Hof hält sie auf hellem Bild lesbar.
